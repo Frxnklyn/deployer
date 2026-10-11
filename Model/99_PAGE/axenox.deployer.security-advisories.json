@@ -2,7 +2,7 @@
     "uid": "0x11f1b047693c445ab047005056be9857",
     "alias_with_namespace": "axenox.deployer.security-advisories",
     "menu_parent_page_selector": "0xb9bb4be0e10011e99b6800a0c6000009",
-    "menu_index": 0,
+    "menu_index": 1,
     "menu_visible": true,
     "name": "Security Advisories",
     "description": "",
@@ -11,7 +11,7 @@
     "created_by_user_selector": "0x11ea11bb12970e55882500505689aada",
     "created_on": "2026-10-10 01:08:59",
     "modified_by_user_selector": "0x11ea11bb12970e55882500505689aada",
-    "modified_on": "2026-10-10 01:23:01",
+    "modified_on": "2026-10-11 17:18:13",
     "contents": {
         "widget_type": "DataTable",
         "object_alias": "axenox.Deployer.advisory",

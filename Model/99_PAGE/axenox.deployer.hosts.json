@@ -2,7 +2,7 @@
     "uid": "0x2dbcde00e10111e99dc300a0c6000009",
     "alias_with_namespace": "axenox.deployer.hosts",
     "menu_parent_page_selector": "0xb9bb4be0e10011e99b6800a0c6000009",
-    "menu_index": 2,
+    "menu_index": 0,
     "menu_visible": true,
     "name": "Hosts",
     "description": "",
@@ -11,7 +11,7 @@
     "created_by_user_selector": "0x31000000000000000000000000000000",
     "created_on": "2019-09-27 10:30:59",
     "modified_by_user_selector": "0x11ea11bb12970e55882500505689aada",
-    "modified_on": "2026-05-29 14:01:33",
+    "modified_on": "2026-10-11 17:18:09",
     "contents": {
         "widget_type": "DataTable",
         "object_alias": "axenox.Deployer.host",

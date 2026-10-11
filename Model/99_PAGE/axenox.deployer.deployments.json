@@ -2,7 +2,7 @@
     "uid": "0x11f195180b37bcbc9518005056be9857",
     "alias_with_namespace": "axenox.deployer.deployments",
     "menu_parent_page_selector": "0xb9bb4be0e10011e99b6800a0c6000009",
-    "menu_index": 1,
+    "menu_index": 3,
     "menu_visible": true,
     "name": "Deployments",
     "description": "",
@@ -11,7 +11,7 @@
     "created_by_user_selector": "0x11ea11bb12970e55882500505689aada",
     "created_on": "2026-04-15 13:27:10",
     "modified_by_user_selector": "0x11ea11bb12970e55882500505689aada",
-    "modified_on": "2026-07-03 13:10:28",
+    "modified_on": "2026-10-11 17:18:09",
     "contents": {
         "widget_type": "DataTable",
         "object_alias": "axenox.Deployer.deployment",
