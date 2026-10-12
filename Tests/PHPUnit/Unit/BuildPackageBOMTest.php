@@ -13,7 +13,7 @@ use PHPUnit\Framework\TestCase;
 class BuildPackageBOMTest extends TestCase
 {
     /**
-     * Build snapshots retain scanner identities but exclude license and source metadata.
+    * Build snapshots retain scanner identities but exclude license and unrelated source metadata.
      * 
      * @return void
      */
@@ -29,9 +29,9 @@ class BuildPackageBOMTest extends TestCase
             $source = json_encode($data, JSON_THROW_ON_ERROR);
             file_put_contents($path, $source);
             self::assertSame(['packages' => [
-                ['name' => 'example/library', 'version' => 'v1.2.3'],
-                ['name' => 'npm-asset/scope--package', 'version' => '2.0.0'],
-                ['name' => 'example/unversioned']
+                ['name' => 'example/library', 'version' => 'v1.2.3', 'ecosystem' => 'composer'],
+                ['name' => '@scope/package', 'version' => '2.0.0', 'ecosystem' => 'npm'],
+                ['name' => 'example/unversioned', 'ecosystem' => 'composer']
             ]], json_decode($this->buildPackageBom($path), true, 512, JSON_THROW_ON_ERROR));
             self::assertSame($source, file_get_contents($path));
         } finally {
@@ -50,6 +50,33 @@ class BuildPackageBOMTest extends TestCase
         try {
             file_put_contents($path, '{"packages":[]}');
             self::assertSame(['packages' => []], json_decode($this->buildPackageBom($path), true, 512, JSON_THROW_ON_ERROR));
+        } finally {
+            unlink($path);
+        }
+    }
+
+    /**
+     * Saved builds need Git references for Bower auditing even when the Composer lock is unavailable.
+     * 
+     * @return void
+     */
+    public function testMinimalSnapshotRetainsGitReferences() : void
+    {
+        $commit = str_repeat('a', 40);
+        $data = ['packages' => [[
+            'name' => 'bower-asset/library', 'version' => '1.0.0',
+            'source' => ['type' => 'git', 'reference' => $commit, 'url' => 'https://example.org/library.git'],
+            'license_text' => ['MIT' => 'License']
+        ]]];
+        $path = tempnam(sys_get_temp_dir(), 'build-bom-git-');
+        try {
+            $source = json_encode($data, JSON_THROW_ON_ERROR);
+            file_put_contents($path, $source);
+            self::assertSame(['packages' => [[
+                'name' => 'library', 'version' => '1.0.0', 'ecosystem' => 'bower',
+                'source' => ['type' => 'git', 'reference' => $commit]
+            ]]], json_decode($this->buildPackageBom($path), true, 512, JSON_THROW_ON_ERROR));
+            self::assertSame($source, file_get_contents($path));
         } finally {
             unlink($path);
         }

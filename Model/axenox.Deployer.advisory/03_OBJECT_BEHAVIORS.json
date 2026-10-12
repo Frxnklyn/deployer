@@ -61,17 +61,18 @@
     ],
     "rows": [
         {
-            "_EXPORT_SUMMARY": "Name and package unique",
+            "_EXPORT_SUMMARY": "Unique advisory per name, type and package",
             "CREATED_ON": "2026-10-09 22:13:07",
-            "MODIFIED_ON": "2026-10-09 22:20:33",
+            "MODIFIED_ON": "2026-10-12 11:42:32",
             "CREATED_BY_USER": "0x11ea11bb12970e55882500505689aada",
-            "MODIFIED_BY_USER": "0x11ea11bb12970e55882500505689aada",
+            "MODIFIED_BY_USER": "0x31000000000000000000000000000000",
             "UID": "0x11f1b41ad7a33c0ab41a005056be9857",
             "BEHAVIOR": "exface/core/Behaviors/PreventDuplicatesBehavior.php",
             "CONFIG_UXON": {
                 "compare_attributes": [
                     "name",
                     "package",
+                    "ecosystem",
                     "type"
                 ],
                 "on_duplicate_single_row": "update",
@@ -79,7 +80,7 @@
             },
             "OBJECT": "0x11f19b5893e733869b58025041000001",
             "APP": "0x11e9e072016ba0dd8afae4b318306b9a",
-            "NAME": "Name and package unique",
+            "NAME": "Unique advisory per name, type and package",
             "DESCRIPTION": "",
             "DISABLED_FLAG": 0,
             "PRIORITY": null

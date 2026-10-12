@@ -36,8 +36,11 @@ to `package_bom.json` beside the project's `composer.lock`.
 
 After the recipe finishes, the Build action reads the staged inventory and uses
 JsonBOM's `minimal` format for the database value:
-`{"packages":[{"name":"example/library","version":"v1.2.3"}]}`.
-Names and versions remain unchanged; license texts and other metadata are omitted.
+`{"packages":[{"name":"example/library","version":"v1.2.3","ecosystem":"composer"}]}`.
+Ecosystems are lowercase and Composer asset aliases become native npm/Bower names;
+versions remain unchanged. Git sources also retain `source.type` and `source.reference`,
+allowing OSV to query locked commits from the BOM alone, including Bower packages.
+Repository URLs, license texts and other unrelated metadata are omitted.
 Unversioned packages remain in the inventory without an invented version.
 
 Like `composer.lock`, the staged BOM is read and saved by Build, not by the recipe.
@@ -60,7 +63,7 @@ The returned DataSheet contains the persisted build-advisory links; the result
 message contains the summary. The action logbook contains each build's scanner
 status, hints and findings table, followed by the summary.
 
-The advisory mapping preserves `level`, `name`, `type`, `package`, `details_url`,
+The advisory mapping preserves `level`, `name`, `type`, `package`, `ecosystem`, `details_url`,
 `description`, `remediation`, `versions_affected`, `version_fixed` and `public_id`.
 Audit's deterministic `ID` is not used as a database UID. Each link's `version`
 stores the finding's `VERSION_INSTALLED`, including an empty value when unknown.
@@ -68,10 +71,18 @@ Installed versions are build-specific and are not copied to shared advisories.
 Scanner provenance is not persisted. A zero-finding audit creates no records. Scanner hints remain visible:
 zero findings alone do not prove that all scanners completed.
 
+`ecosystem` is required and uses `axenox.PackageManager.PackageEcosystem`.
+The migration creates a non-nullable column with a `composer` default and
+backfills existing advisories as Composer, the only previously supported ecosystem.
+New findings retain their lowercase registry identity. OS packages and other
+unestablished registries explicitly use `unknown`, not an inferred Composer identity.
+
 There is no custom deduplication or deletion of previous findings. Repeated audits
 create new advisories and links until deduplication is configured in the model.
 A future `PreventDuplicatesBehavior` on advisories should use duplicate **update**
 handling so every submitted finding returns its existing or newly created UID.
+Its matching criteria must include `ecosystem` as well as `package` and advisory identity;
+package names are not unique across registries.
 Duplicate **ignore** handling that drops rows cannot supply all required links.
 Deduplicating build links can be configured separately on the build/advisory pair.
 Previously saved links remain even when a later scan no longer reports a finding.

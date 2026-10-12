@@ -38,6 +38,14 @@ class AuditBuildTest extends TestCase
         $model = json_decode(file_get_contents(dirname(__DIR__, 3)
             . '/Model/axenox.Deployer.advisory/04_ATTRIBUTE.json'), true, 512, JSON_THROW_ON_ERROR);
         $attributes = array_column($model['rows'], 'ALIAS');
+        $ecosystem = array_column($model['rows'], null, 'ALIAS')['ecosystem'];
+        $datatypes = json_decode(file_get_contents(dirname(__DIR__, 4)
+            . '/packagemanager/Model/01_DATATYPE.json'), true, 512, JSON_THROW_ON_ERROR);
+        $datatype = array_column($datatypes['rows'], null, 'ALIAS')['PackageEcosystem'];
+        self::assertSame($datatype['UID'], $ecosystem['DATATYPE']);
+        self::assertSame('ecosystem', $ecosystem['DATA_ADDRESS']);
+        self::assertSame(1, $ecosystem['REQUIREDFLAG']);
+        self::assertSame("'composer'", $ecosystem['DEFAULT_VALUE']);
         $columns = array_keys($row);
         sort($attributes);
         sort($columns);
@@ -47,6 +55,7 @@ class AuditBuildTest extends TestCase
             'name' => 'NAME',
             'type' => 'TYPE',
             'package' => 'PACKAGE',
+            'ecosystem' => 'ECOSYSTEM',
             'details_url' => 'DETAILS_URL',
             'description' => 'DESCRIPTION',
             'remediation' => 'REMEDIATION',
@@ -74,6 +83,7 @@ class AuditBuildTest extends TestCase
         self::assertSame('EOL', $row['type']);
         self::assertSame('vendor/abandoned', $row['package']);
         self::assertSame('', $row['public_id']);
+        self::assertSame('unknown', $row['ecosystem']);
         self::assertSame('', $row['version_fixed']);
     }
 

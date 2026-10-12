@@ -2,6 +2,7 @@
 namespace axenox\Deployer\Actions;
 
 use axenox\PackageManager\Actions\Audit;
+use axenox\PackageManager\DataTypes\PackageEcosystemDataType;
 use exface\Core\CommonLogic\AbstractAction;
 use exface\Core\CommonLogic\DataSheets\DataCollector;
 use exface\Core\Exceptions\Actions\ActionRuntimeError;
@@ -40,7 +41,7 @@ use exface\Core\Interfaces\Tasks\TaskInterface;
 class AuditBuild extends AbstractAction implements iCreateData
 {
     private const ADVISORY_COLUMNS = [
-        'level', 'name', 'type', 'package', 'details_url', 'description',
+        'level', 'name', 'type', 'package', 'ecosystem', 'details_url', 'description',
         'remediation', 'versions_affected', 'version_fixed', 'public_id'
     ];
 
@@ -162,6 +163,7 @@ class AuditBuild extends AbstractAction implements iCreateData
             'name' => $finding['NAME'],
             'type' => $finding['TYPE'],
             'package' => $finding['PACKAGE'],
+            'ecosystem' => $finding['ECOSYSTEM'] !== '' ? $finding['ECOSYSTEM'] : PackageEcosystemDataType::UNKNOWN,
             'details_url' => $finding['DETAILS_URL'],
             'description' => $finding['DESCRIPTION'],
             'remediation' => $finding['REMEDIATION'],
