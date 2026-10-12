@@ -87,9 +87,9 @@
         {
             "_EXPORT_SUMMARY": "Build [axenox.Deployer.build]",
             "CREATED_ON": "2019-10-22 13:31:13",
-            "MODIFIED_ON": "2025-08-06 17:13:31",
+            "MODIFIED_ON": "2026-10-12 10:39:05",
             "CREATED_BY_USER": "0x31000000000000000000000000000000",
-            "MODIFIED_BY_USER": "0x31000000000000000000000000000000",
+            "MODIFIED_BY_USER": "0x11ea11bb12970e55882500505689aada",
             "UID": "0x11e9f4d01e9108ebbacde4b318306b9a",
             "READABLE_FLAG": 1,
             "WRITABLE_FLAG": 1,
@@ -215,6 +215,18 @@
                                 "widgets": [
                                     {
                                         "attribute_alias": "composer_lock",
+                                        "widget_type": "InputJson",
+                                        "height": "100%",
+                                        "width": "max",
+                                        "hide_caption": true
+                                    }
+                                ]
+                            },
+                            {
+                                "caption": "BOM",
+                                "widgets": [
+                                    {
+                                        "attribute_alias": "package_bom",
                                         "widget_type": "InputJson",
                                         "height": "100%",
                                         "width": "max",

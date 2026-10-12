@@ -87,9 +87,9 @@
         {
             "_EXPORT_SUMMARY": "Advisory [axenox.Deployer.advisory]",
             "CREATED_ON": "2026-10-07 13:31:03",
-            "MODIFIED_ON": "2026-10-07 13:31:50",
+            "MODIFIED_ON": "2026-10-12 10:38:10",
             "CREATED_BY_USER": "0x31000000000000000000000000000000",
-            "MODIFIED_BY_USER": "0x31000000000000000000000000000000",
+            "MODIFIED_BY_USER": "0x11ea11bb12970e55882500505689aada",
             "UID": "0x11f19b5893e733869b58025041000001",
             "READABLE_FLAG": 1,
             "WRITABLE_FLAG": 1,
@@ -102,7 +102,104 @@
             "SHORT_DESCRIPTION": "",
             "PARENT_OBJECT": null,
             "DATA_ADDRESS_PROPS": null,
-            "DEFAULT_EDITOR_UXON": null,
+            "DEFAULT_EDITOR_UXON": {
+                "widget_type": "Dialog",
+                "readonly": true,
+                "widgets": [
+                    {
+                        "widget_type": "WidgetGroup",
+                        "widgets": [
+                            {
+                                "attribute_alias": "name"
+                            },
+                            {
+                                "attribute_alias": "package"
+                            },
+                            {
+                                "attribute_alias": "level"
+                            },
+                            {
+                                "attribute_alias": "type"
+                            },
+                            {
+                                "attribute_alias": "public_id"
+                            },
+                            {
+                                "attribute_alias": "versions_affected"
+                            },
+                            {
+                                "attribute_alias": "version_fixed"
+                            },
+                            {
+                                "attribute_alias": "details_url",
+                                "widget_type": "InputHidden"
+                            }
+                        ]
+                    },
+                    {
+                        "widget_type": "WidgetGroup",
+                        "caption": "Description",
+                        "widgets": [
+                            {
+                                "attribute_alias": "description",
+                                "hide_caption": true
+                            },
+                            {
+                                "attribute_alias": "remediation",
+                                "hide_caption": true
+                            }
+                        ]
+                    },
+                    {
+                        "widget_type": "DataTable",
+                        "caption": "Affected builds",
+                        "object_alias": "axenox.Deployer.build_advisory",
+                        "width": "100%",
+                        "height": "max",
+                        "row_grouper": {
+                            "group_by_attribute_alias": "build__project__LABEL"
+                        },
+                        "filters": [
+                            {
+                                "attribute_alias": "advisory",
+                                "hidden": true,
+                                "required": true
+                            }
+                        ],
+                        "columns": [
+                            {
+                                "attribute_alias": "build__project__LABEL"
+                            },
+                            {
+                                "attribute_alias": "build__build_datetime"
+                            },
+                            {
+                                "attribute_alias": "build__version",
+                                "caption": "Build version"
+                            },
+                            {
+                                "attribute_alias": "version",
+                                "caption": "Package version"
+                            },
+                            {
+                                "attribute_alias": "build__currently_deployed__host__LABEL:LIST_DISTINCT"
+                            }
+                        ]
+                    }
+                ],
+                "buttons": [
+                    {
+                        "caption": "Open vulnerability page",
+                        "action": {
+                            "alias": "exface.core.GoToUrl",
+                            "url": "[#details_url#]",
+                            "urlencode_placeholders": false,
+                            "open_in_new_window": true,
+                            "close_dialog": false
+                        }
+                    }
+                ]
+            },
             "ALIAS": "advisory",
             "DATA_ADDRESS": "axxdep_advisory"
         }
