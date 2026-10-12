@@ -2,11 +2,11 @@
 
 Use `axenox.Deployer.AuditBuild` on one or more `axenox.Deployer.build` rows
 to collect advisories for existing builds, including already deployed builds.
-The action scans each build's saved `composer_lock`, not the current installation.
+The action scans each build's saved `composer_lock` and `package_bom`, not the current installation.
 No deployment status filter is applied: the caller selects the builds to audit.
 
 `axenox.Deployer.Build` automatically calls this action for the newly created build
-after a successful build and the final save of its `composer_lock`. Failed builds
+after a successful build and the final save of its `composer_lock` and `package_bom`. Failed builds
 are not audited. The audit uses its own action transaction and normal authorization.
 Its summary or error is streamed to the caller and appended to the build log.
 Audit errors are also recorded in the workbench log; the build remains successful.
@@ -21,17 +21,40 @@ For example, add this button to a build table:
 }
 ```
 
-Input must contain build UIDs. A DataCollector reads missing `composer_lock`
-values. Missing UIDs or empty locks fail before any scanner is called. Malformed
-locks and scanner failures propagate as errors; they do not trigger an audit of
+Input must contain build UIDs. A DataCollector reads missing `composer_lock` and
+`package_bom` values. Builds with neither artifact are skipped; either artifact
+can be scanned on its own. Malformed artifacts and scanner failures propagate as
+errors; they do not trigger an audit of
 the current installation instead.
+
+## Package Snapshot
+
+The Composer recipe captures the built project's `vendor/licenses.json` before
+removing its temporary vendor folder. The local-clone recipe captures the local
+inventory included in its archive. Both recipes copy the original JSON unchanged
+to `package_bom.json` beside the project's `composer.lock`.
+
+After the recipe finishes, the Build action reads the staged inventory and uses
+JsonBOM's `minimal` format for the database value:
+`{"packages":[{"name":"example/library","version":"v1.2.3"}]}`.
+Names and versions remain unchanged; license texts and other metadata are omitted.
+Unversioned packages remain in the inventory without an invented version.
+
+Like `composer.lock`, the staged BOM is read and saved by Build, not by the recipe.
+Build saves the converted JSON in `package_bom` and removes the staged file during
+cleanup. Stale staged files are removed before the recipe starts. Older projects
+without a generated `vendor/licenses.json` retain lock-only auditing. Custom
+recipes must copy their license inventory to `package_bom.json`; they do not need
+to reduce it to minimal JSON or access the database. Existing builds
+are not backfilled from the current installation.
 
 ## Persistence
 
 For each build, the action calls `axenox.PackageManager.Audit` through the normal
-action lifecycle with a fresh task containing only that build's lock. Its findings
+action lifecycle with a fresh task containing only that build's saved artifacts.
+The package BOM is passed as Audit's `sbom` parameter. Its findings
 are saved through DataSheets as `axenox.Deployer.advisory` records. Their persisted
-UIDs are linked to the build using `axxdep_build` and `axxdep_advisory` on
+UIDs are linked to the build using `build` and `advisory` on
 `axenox.Deployer.build_advisory`. Both writes share the action's transaction.
 The returned DataSheet contains the persisted build-advisory links; the result
 message contains the summary. The action logbook contains each build's scanner
@@ -39,9 +62,10 @@ status, hints and findings table, followed by the summary.
 
 The advisory mapping preserves `level`, `name`, `type`, `package`, `details_url`,
 `description`, `remediation`, `versions_affected`, `version_fixed` and `public_id`.
-Audit's deterministic `ID` is not used as a database UID. Scanner provenance and
-installed versions are not saved because the destination objects have no such
-attributes. A zero-finding audit creates no records. Scanner hints remain visible:
+Audit's deterministic `ID` is not used as a database UID. Each link's `version`
+stores the finding's `VERSION_INSTALLED`, including an empty value when unknown.
+Installed versions are build-specific and are not copied to shared advisories.
+Scanner provenance is not persisted. A zero-finding audit creates no records. Scanner hints remain visible:
 zero findings alone do not prove that all scanners completed.
 
 There is no custom deduplication or deletion of previous findings. Repeated audits
@@ -69,8 +93,9 @@ php vendor/bin/phpunit -c vendor/axenox/deployer/phpunit.xml.dist --testsuite un
 ```
 
 Standalone installations use `php vendor/bin/phpunit -c phpunit.xml.dist`.
-Unit tests cover prototype defaults and the model-aligned advisory mapping without
-a database or mocked Workbench. Application-level validation requires a persisted
+Unit tests cover minimal package snapshots, prototype defaults, and model-aligned
+advisory and installed-version link mappings without a database or mocked Workbench.
+Application-level validation requires a persisted
 metamodel and backing tables: select multiple builds, audit them, verify each
 advisory link, then repeat with the desired duplicate behavior. Also check empty
 locks, clean scans, scanner failure and transaction rollback in that environment.

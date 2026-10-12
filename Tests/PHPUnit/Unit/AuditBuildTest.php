@@ -90,4 +90,27 @@ class AuditBuildTest extends TestCase
         $method->setAccessible(true);
         return $method->invoke($action, $finding);
     }
+
+    /**
+     * One shared advisory retains each build's installed version, including unknown versions.
+     * 
+     * @return void
+     */
+    public function testInstalledVersionBelongsToTheBuildLink() : void
+    {
+        $action = ActionFactory::createFromString(new Workbench(), AuditBuild::class);
+        $method = new \ReflectionMethod(AuditBuild::class, 'mapBuildAdvisoryRow');
+        $method->setAccessible(true);
+        $model = json_decode(file_get_contents(dirname(__DIR__, 3)
+            . '/Model/axenox.Deployer.build_advisory/04_ATTRIBUTE.json'), true, 512, JSON_THROW_ON_ERROR);
+        $attributes = array_column($model['rows'], 'DATA_ADDRESS', 'ALIAS');
+        self::assertSame('version', $attributes['version']);
+        foreach (['v1.2.3', '2.0.0', ''] as $version) {
+            self::assertSame([
+                'build' => 'build-uid',
+                'advisory' => 'advisory-uid',
+                'version' => $version
+            ], $method->invoke($action, 'build-uid', 'advisory-uid', ['VERSION_INSTALLED' => $version]));
+        }
+    }
 }

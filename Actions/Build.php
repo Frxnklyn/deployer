@@ -26,12 +26,17 @@ use exface\Core\Exceptions\InvalidArgumentException;
 use exface\Core\Exceptions\Actions\ActionInputError;
 use exface\Core\Factories\ActionFactory;
 use exface\Core\Factories\TaskFactory;
+use axenox\PackageManager\Common\LicenseBOM\BOMPackage;
+use axenox\PackageManager\Common\LicenseBOM\Format\JsonBOM;
+use axenox\PackageManager\Common\LicenseBOM\LicenseBOM;
+use exface\Core\DataTypes\JsonDataType;
 
 /**
  * Creates a new build for a project from one of the build variants configured for it.
  * 
  * Successful builds are automatically audited by `axenox.Deployer.AuditBuild` after
- * their Composer lock is saved. Audit errors are logged without failing the build.
+ * their Composer lock and minimal package BOM are saved. Audit errors are logged
+ * without failing the build.
  * 
  * ## Parameters
  * 
@@ -181,6 +186,12 @@ class Build extends AbstractActionDeferred implements iCanBeCalledFromCLI, iCrea
             $seconds = time();
             
             $environmentVars = $this->getCmdEnvironmentVars($projectFolder);
+
+            // Remove any stale build package BOM before starting the build
+            $packageBomPath = $this->getBasePath() . $projectFolder . DIRECTORY_SEPARATOR . 'package_bom.json';
+            if (is_file($packageBomPath) && ! unlink($packageBomPath)) {
+                throw new ActionRuntimeError($this, 'Cannot remove a stale build package BOM: ' . $packageBomPath);
+            }
             
             $process = Process::fromShellCommandline($cmd, null, $environmentVars, null, $this->getTimeout());
             $process->start();
@@ -207,6 +218,11 @@ class Build extends AbstractActionDeferred implements iCanBeCalledFromCLI, iCrea
             $composerLockPath = $this->getBasePath() . $projectFolder . DIRECTORY_SEPARATOR . 'composer.lock';
             if (file_exists($composerLockPath)) {
                 $buildData->setCellValue('composer_lock', 0, file_get_contents($composerLockPath));
+            }
+
+            // Read the build package BOM if the build was successful
+            if ($process->isSuccessful() && is_file($packageBomPath)) {
+                $buildData->setCellValue('package_bom', 0, $this->buildPackageBom($packageBomPath));
             }
             
             // Delete temporary files
@@ -251,6 +267,36 @@ class Build extends AbstractActionDeferred implements iCanBeCalledFromCLI, iCrea
         }
 
         return $buildName;
+    }
+
+    /**
+     * Reduces the staged license inventory to the build's database representation.
+     * 
+     * Recipes preserve the original JSON before cleaning up their vendor folder.
+     * Invalid inventories fail rather than recording an apparently clean empty build.
+     * JsonBOM owns the minimal format; the staged source is left unchanged.
+     * 
+     * @param string $filePath
+     * @return string
+     */
+    protected function buildPackageBom(string $filePath) : string
+    {
+        $json = file_get_contents($filePath);
+        if ($json === false) {
+            throw new ActionRuntimeError($this, 'Cannot read the build package BOM: ' . $filePath);
+        }
+        $data = JsonDataType::decodeJson($json);
+        if (! is_array($data['packages'] ?? null)) {
+            throw new InvalidArgumentException('Build package BOM must contain a packages array.');
+        }
+        $bom = new LicenseBOM();
+        foreach ($data['packages'] as $package) {
+            if (! is_array($package) || ! is_string($package['name'] ?? null) || $package['name'] === '') {
+                throw new InvalidArgumentException('Build package BOM packages must have a nonempty name.');
+            }
+            $bom->addPackage(new BOMPackage($package));
+        }
+        return (new JsonBOM($bom))->setFormat('minimal')->buildJson();
     }
     
     /**
@@ -723,6 +769,7 @@ PHP;
             $projectFolder . DIRECTORY_SEPARATOR . 'build.php',
             $projectFolder . DIRECTORY_SEPARATOR . 'composer.json',
             $projectFolder . DIRECTORY_SEPARATOR . 'composer.lock',
+            $projectFolder . DIRECTORY_SEPARATOR . 'package_bom.json',
             $projectFolder . DIRECTORY_SEPARATOR . 'auth.json'
         ];
         

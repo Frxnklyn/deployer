@@ -69,6 +69,12 @@ task('build:create_from_local', function() {
         mkdir($buildsPath);
     }
     runLocally('tar -czf "{{builds_archives_path}}\{{archiv_name}}" {{source_files}}');        
+    $licensePath = getcwd() . DIRECTORY_SEPARATOR . 'vendor' . DIRECTORY_SEPARATOR . 'licenses.json';
+    if (is_file($licensePath)) {
+        if (! copy($licensePath, $buildsPath . DIRECTORY_SEPARATOR . '..' . DIRECTORY_SEPARATOR . 'package_bom.json')) {
+            throw new Exception('Cannot stage the build package BOM.');
+        }
+    }
 });
 
 /**
@@ -148,6 +154,14 @@ task('build:create_from_composer', function() {
     file_put_contents($buildsPath . DIRECTORY_SEPARATOR . '..' . DIRECTORY_SEPARATOR. 'composer.json', $jsonData);
     
     runLocally('cd "{{builds_archives_path}}" && tar -czf {{archiv_name}} -C "{{builds_archives_path}}/.." {{source_files}}', ['timeout' => $composer_timeout]);
+
+    // Stage the build package BOM if it exists
+    $licensePath = $buildsPath . DIRECTORY_SEPARATOR . '..' . DIRECTORY_SEPARATOR . 'vendor' . DIRECTORY_SEPARATOR . 'licenses.json';
+    if (is_file($licensePath)) {
+        if (! copy($licensePath, $buildsPath . DIRECTORY_SEPARATOR . '..' . DIRECTORY_SEPARATOR . 'package_bom.json')) {
+            throw new Exception('Cannot stage the build package BOM.');
+        }
+    }
 
     if (substr(php_uname(), 0, 7) == "Windows"){
         runLocally('rmdir /s /q "{{builds_archives_path}}' . DIRECTORY_SEPARATOR . '..' . DIRECTORY_SEPARATOR . 'vendor"', ['timeout' => $composer_timeout]);
