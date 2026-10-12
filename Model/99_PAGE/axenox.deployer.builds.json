@@ -11,7 +11,7 @@
     "created_by_user_selector": "0x11ea11bb12970e55882500505689aada",
     "created_on": "2026-04-15 13:34:43",
     "modified_by_user_selector": "0x11ea11bb12970e55882500505689aada",
-    "modified_on": "2026-10-12 11:15:27",
+    "modified_on": "2026-10-12 12:02:04",
     "contents": {
         "widget_type": "DataTable",
         "object_alias": "axenox.Deployer.build",
@@ -78,6 +78,9 @@
             },
             {
                 "action_alias": "axenox.deployer.AuditBuild"
+            },
+            {
+                "action_alias": "axenox.Deployer.AuditBuildsActive"
             },
             {
                 "action_alias": "exface.Core.DeleteObject",
