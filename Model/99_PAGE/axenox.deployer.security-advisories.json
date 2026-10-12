@@ -11,7 +11,7 @@
     "created_by_user_selector": "0x11ea11bb12970e55882500505689aada",
     "created_on": "2026-10-10 01:08:59",
     "modified_by_user_selector": "0x11ea11bb12970e55882500505689aada",
-    "modified_on": "2026-10-12 10:36:38",
+    "modified_on": "2026-10-12 10:59:01",
     "contents": {
         "widget_type": "DataTable",
         "object_alias": "axenox.Deployer.advisory",
@@ -43,8 +43,9 @@
                 "attribute_alias": "type"
             },
             {
-                "attribute_alias": "build_advisory__build__currently_deployed__host__LABEL:LIST_DISTINCT",
-                "caption": "Affected hosts"
+                "attribute_alias": "build_advisory__build__currently_deployed__host:COUNT",
+                "caption": "On hosts",
+                "hint": "Number of hosts, where affected version are currently deployed"
             },
             {
                 "attribute_alias": "versions_affected"
