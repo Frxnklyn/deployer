@@ -55,6 +55,7 @@ class AuditBuild extends AbstractAction implements iCreateData
         parent::init();
         $this->setInputRowsMin(1);
         $this->setInputObjectAlias('axenox.Deployer.build');
+        $this->setIcon('fa fa-shield');
     }
 
     /**
