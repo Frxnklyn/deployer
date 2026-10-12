@@ -61,9 +61,9 @@
     ],
     "rows": [
         {
-            "_EXPORT_SUMMARY": "One per per advisory and build",
+            "_EXPORT_SUMMARY": "Each advisory only once per build",
             "CREATED_ON": "2026-10-09 22:16:51",
-            "MODIFIED_ON": "2026-10-09 22:16:51",
+            "MODIFIED_ON": "2026-10-12 11:18:06",
             "CREATED_BY_USER": "0x11ea11bb12970e55882500505689aada",
             "MODIFIED_BY_USER": "0x11ea11bb12970e55882500505689aada",
             "UID": "0x11f18fff5d29b0708fff005056be9857",
@@ -73,13 +73,13 @@
                     "advisory",
                     "build"
                 ],
-                "on_duplicate_single_row": "ignore",
-                "on_duplicate_multi_row": "ignore"
+                "on_duplicate_single_row": "update",
+                "on_duplicate_multi_row": "update"
             },
             "OBJECT": "0x11f1b4f693e757b2b4f6025041000001",
             "APP": "0x11e9e072016ba0dd8afae4b318306b9a",
-            "NAME": "One per per advisory and build",
-            "DESCRIPTION": "",
+            "NAME": "Each advisory only once per build",
+            "DESCRIPTION": "Duplicates lead to an update, so multiple scans will update the modified_on showing when a build-advisory was first and last seen",
             "DISABLED_FLAG": 0,
             "PRIORITY": null
         }

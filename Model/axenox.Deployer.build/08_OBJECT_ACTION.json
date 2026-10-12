@@ -507,6 +507,52 @@
             "APP": "0x11e9e072016ba0dd8afae4b318306b9a",
             "USE_IN_OBJECT_BASKET_FLAG": 0,
             "DOCS": ""
+        },
+        {
+            "_EXPORT_SUMMARY": "Build: Scan active builds [AuditBuildsActive]",
+            "CREATED_ON": "2026-10-12 12:01:24",
+            "MODIFIED_ON": "2026-10-12 12:04:25",
+            "CREATED_BY_USER": "0x11ea11bb12970e55882500505689aada",
+            "MODIFIED_BY_USER": "0x11ea11bb12970e55882500505689aada",
+            "UID": "0x11f18c64e23b85f28c64005056be9857",
+            "OBJECT": "0x11e9f4d01e9108ebbacde4b318306b9a",
+            "ACTION_PROTOTYPE": "exface/core/Actions/ActionChain.php",
+            "ALIAS": "AuditBuildsActive",
+            "NAME": "Scan active builds",
+            "SHORT_DESCRIPTION": "",
+            "CONFIG_UXON": {
+                "icon": "cogs",
+                "actions": [
+                    {
+                        "alias": "exface.core.ReadData",
+                        "object_alias": "axenox.Deployer.build",
+                        "input_data_sheet": {
+                            "object_alias": "axenox.Deployer.build",
+                            "columns": [
+                                {
+                                    "attribute_alias": "uid"
+                                }
+                            ],
+                            "filters": {
+                                "operator": "AND",
+                                "conditions": [
+                                    {
+                                        "expression": "currently_deployed__host:COUNT",
+                                        "comparator": ">",
+                                        "value": 0
+                                    }
+                                ]
+                            }
+                        }
+                    },
+                    {
+                        "alias": "axenox.deployer.AuditBuild"
+                    }
+                ]
+            },
+            "APP": "0x11e9e072016ba0dd8afae4b318306b9a",
+            "USE_IN_OBJECT_BASKET_FLAG": 0,
+            "DOCS": ""
         }
     ],
     "totals_rows": [],

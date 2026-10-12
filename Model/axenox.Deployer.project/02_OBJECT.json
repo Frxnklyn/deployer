@@ -87,7 +87,7 @@
         {
             "_EXPORT_SUMMARY": "Deployment Project [axenox.Deployer.project]",
             "CREATED_ON": "2019-09-27 07:21:01",
-            "MODIFIED_ON": "2026-08-06 23:43:46",
+            "MODIFIED_ON": "2026-10-12 11:12:03",
             "CREATED_BY_USER": "0x31000000000000000000000000000000",
             "MODIFIED_BY_USER": "0x11ea11bb12970e55882500505689aada",
             "UID": "0x11e9e0f75c1bf571bacde4b318306b9a",
@@ -376,6 +376,11 @@
                                                 "attribute_alias": "status"
                                             },
                                             {
+                                                "attribute_alias": "build_advisory__advisory__level:MAX",
+                                                "caption": "Adv.",
+                                                "hint": "Highest vulnerability/advisory level known for this build"
+                                            },
+                                            {
                                                 "attribute_alias": "currently_deployed__host__LABEL:LIST",
                                                 "caption": "In use on"
                                             },
@@ -390,10 +395,10 @@
                                                 "attribute_alias": "comment"
                                             },
                                             {
-                                                "attribute_alias": "name"
+                                                "attribute_alias": "created_by_user__LABEL"
                                             },
                                             {
-                                                "attribute_alias": "created_by_user__LABEL"
+                                                "attribute_alias": "name"
                                             }
                                         ],
                                         "sorters": [
