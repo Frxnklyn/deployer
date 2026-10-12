@@ -1,4 +1,5 @@
 {
+	"ACTION.AUDITBUILD.NAME": "Build scannen",
 	"ACTION.BUILD.NAME": "Neues Build",
 	"ACTION.DEPLOY.NAME": "Build Deployen"
 }
