@@ -87,9 +87,9 @@
         {
             "_EXPORT_SUMMARY": "Deployment Project [axenox.Deployer.project]",
             "CREATED_ON": "2019-09-27 07:21:01",
-            "MODIFIED_ON": "2026-10-12 11:12:03",
+            "MODIFIED_ON": "2026-10-14 10:12:42",
             "CREATED_BY_USER": "0x31000000000000000000000000000000",
-            "MODIFIED_BY_USER": "0x11ea11bb12970e55882500505689aada",
+            "MODIFIED_BY_USER": "0x11ea4f31405af6f7bfc400505689aada",
             "UID": "0x11e9e0f75c1bf571bacde4b318306b9a",
             "READABLE_FLAG": 1,
             "WRITABLE_FLAG": 1,
@@ -200,6 +200,16 @@
                                         "object_alias": "axenox.Deployer.host",
                                         "paginate": false,
                                         "height": "max",
+                                        "sorters": [
+                                            {
+                                                "attribute_alias": "name",
+                                                "direction": "desc"
+                                            },
+                                            {
+                                                "attribute_alias": "status",
+                                                "direction": "desc"
+                                            }
+                                        ],
                                         "filters": [
                                             {
                                                 "attribute_alias": "project",
@@ -209,6 +219,9 @@
                                             }
                                         ],
                                         "columns": [
+                                            {
+                                                "attribute_alias": "status"
+                                            },
                                             {
                                                 "attribute_alias": "name"
                                             },

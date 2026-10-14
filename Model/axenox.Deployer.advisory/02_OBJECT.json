@@ -87,7 +87,7 @@
         {
             "_EXPORT_SUMMARY": "Advisory [axenox.Deployer.advisory]",
             "CREATED_ON": "2026-10-07 13:31:03",
-            "MODIFIED_ON": "2026-10-12 10:38:10",
+            "MODIFIED_ON": "2026-10-12 12:56:30",
             "CREATED_BY_USER": "0x31000000000000000000000000000000",
             "MODIFIED_BY_USER": "0x11ea11bb12970e55882500505689aada",
             "UID": "0x11f19b5893e733869b58025041000001",
@@ -182,7 +182,12 @@
                                 "caption": "Package version"
                             },
                             {
-                                "attribute_alias": "build__currently_deployed__host__LABEL:LIST_DISTINCT"
+                                "attribute_alias": "build__currently_deployed__host__LABEL:LIST_DISTINCT",
+                                "caption": "On hosts"
+                            },
+                            {
+                                "attribute_alias": "build__currently_deployed__started_on:MAX",
+                                "caption": "Last deployed"
                             }
                         ]
                     }
@@ -194,8 +199,7 @@
                             "alias": "exface.core.GoToUrl",
                             "url": "[#details_url#]",
                             "urlencode_placeholders": false,
-                            "open_in_new_window": true,
-                            "close_dialog": false
+                            "open_in_new_window": true
                         }
                     }
                 ]
