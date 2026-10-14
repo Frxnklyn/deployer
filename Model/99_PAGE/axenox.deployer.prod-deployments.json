@@ -1,0 +1,72 @@
+{
+    "uid": "0x11f1bfe53351769cbfe5005056be9857",
+    "alias_with_namespace": "axenox.deployer.prod-deployments",
+    "menu_parent_page_selector": "0xb9bb4be0e10011e99b6800a0c6000009",
+    "menu_index": 3,
+    "menu_visible": true,
+    "name": "PROD Deployments",
+    "description": "",
+    "intro": "",
+    "replaces_page_selector": null,
+    "created_by_user_selector": "0x11ea4f31405af6f7bfc400505689aada",
+    "created_on": "2026-10-13 15:51:33",
+    "modified_by_user_selector": "0x11ea4f31405af6f7bfc400505689aada",
+    "modified_on": "2026-10-14 10:16:53",
+    "contents": {
+        "widget_type": "DataTable",
+        "object_alias": "axenox.Deployer.host",
+        "row_grouper": {
+            "group_by_attribute_alias": "status"
+        },
+        "filters": [
+            {
+                "attribute_alias": "project"
+            },
+            {
+                "attribute_alias": "status"
+            },
+            {
+                "attribute_alias": "stage__name",
+                "value": "Production",
+                "hidden": true
+            }
+        ],
+        "columns": [
+            {
+                "attribute_alias": "status"
+            },
+            {
+                "attribute_alias": "project__LABEL"
+            },
+            {
+                "attribute_alias": "name"
+            },
+            {
+                "attribute_alias": "currently_deployed__build__LABEL"
+            },
+            {
+                "attribute_alias": "currently_deployed__build__build_variant__LABEL"
+            },
+            {
+                "attribute_alias": "currently_deployed__build__build_advisory__advisory__level:MAX"
+            },
+            {
+                "attribute_alias": "currently_deployed__build__build_datetime"
+            },
+            {
+                "attribute_alias": "currently_deployed__completed_on",
+                "caption": "Deployment time"
+            },
+            {
+                "attribute_alias": "currently_deployed__created_by_user__LABEL",
+                "caption": "Deployed from"
+            }
+        ],
+        "sorters": [
+            {
+                "attribute_alias": "currently_deployed__build__build_advisory__advisory__level:MAX",
+                "direction": "desc"
+            }
+        ]
+    }
+}

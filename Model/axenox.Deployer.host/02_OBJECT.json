@@ -87,9 +87,9 @@
         {
             "_EXPORT_SUMMARY": "Host [axenox.Deployer.host]",
             "CREATED_ON": "2019-09-27 07:22:43",
-            "MODIFIED_ON": "2026-05-19 16:27:49",
+            "MODIFIED_ON": "2026-10-14 09:40:15",
             "CREATED_BY_USER": "0x31000000000000000000000000000000",
-            "MODIFIED_BY_USER": "0x11e8fe1c902c8ebea23ee4b318306b9a",
+            "MODIFIED_BY_USER": "0x11ea4f31405af6f7bfc400505689aada",
             "UID": "0x11e9e0f798c74f73bacde4b318306b9a",
             "READABLE_FLAG": 1,
             "WRITABLE_FLAG": 1,
@@ -129,6 +129,9 @@
                                             },
                                             {
                                                 "attribute_alias": "url_to_installation"
+                                            },
+                                            {
+                                                "attribute_alias": "decommissioned_on"
                                             }
                                         ]
                                     },
