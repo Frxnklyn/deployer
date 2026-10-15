@@ -15,10 +15,10 @@ Version 3 of `axenox.Deployer` replaces procedural recipes with configurable bui
 - Rename recipes to **pipelines** in the v3 architecture, configuration editors and documentation. Use **Build Pipeline** and **Deployment Pipeline** as designer-facing names. Legacy recipe labels and values remain identifiable during migration.
 - Replace procedural recipes with UXON pipeline prototype classes. Developers implement supported workflows; app designers select a template and configure its documented settings. Use LogBooks to collect execution evidence.
 	- UXON annotations provide autosuggest, documentation and presets in configuration editors.
-	- Replace the static enums `BuildRecipeDataType` and `DeploymentRecipeDataType` with cross-app pipeline prototype discovery. Proposed folders are `BuildPipelines` and `DeploymentPipelines`; final namespace and selector conventions remain to be decided.
+	- Replace the static enums `BuildRecipeDataType` and `DeploymentRecipeDataType` with cross-app pipeline prototype discovery. Build prototypes live in `Pipelines/Build` and deployment prototypes in `Pipelines/Deploy`, using the corresponding app namespaces. Exact stored selector format and editor integration remain to be defined.
 - Provide configurable templates, **not a general-purpose pipeline editor**. Users do not assemble arbitrary stages, dependencies or conditions. New workflows are added by developers as pipeline prototypes.
 - Remove the external PHP deployer library. Its procedural recipe format has proven hard to extend and maintain for our needs.
-- Each host owns its deployment pipeline prototype selection and UXON configuration, allowing different deployment strategies within one project. Move the legacy project-level recipe selection to the hosts; migrate existing host deployment settings and paths into pipeline UXON properties. The host editor provides a prototype dropdown and a UXON editor for the selected prototype.
+- Each host owns its deployment pipeline prototype selection and UXON configuration, allowing different deployment strategies within one project. Move the legacy project-level recipe selection to the hosts. Pass all host attributes to pipeline instances through public setters, never through UXON properties. Pipeline UXON contains only settings without a corresponding host attribute. The host editor provides a prototype dropdown and a UXON editor for the selected prototype.
 - Each build variant owns its build pipeline prototype selection and UXON configuration. Replace its separate `composer_json` and `composer_auth` attributes with `prototype_file` and `config_uxon`; migrate the project-level build recipe selection to the applicable build variants. The build-variant editor provides a prototype selector and a UXON editor for the selected prototype.
 
 ### Pipeline terminology
@@ -58,7 +58,7 @@ This inventory covers all four build and nine deployment options currently expos
 
 #### Deployment recipes
 
-All retained self-extractor recipes currently share [SelfDeployment.php](../../Recipes/SelfDeployment.php) and the embedded [SelfExtractingDeployment.php](../../Recipes/SelfExtractingPHP/SelfExtractingDeployment.php) installer. Extract reusable package generation and host installation logic without making `.phx` a requirement of the generic deployment pipeline interface. Preserve host configuration, local vendors, shared/copied directories, installer execution, deployment log reporting and critical-error recovery. Define release retention, local vendors and applicable deployment paths as properties of the selected pipeline prototype, with their configured values stored in the host's pipeline UXON. Preserve the effective legacy `keep_releases` value, including its deployment-config override, during migration. Replace Windows-specific package concatenation and other shell assumptions with portable PHP operations or OS adapters.
+All retained self-extractor recipes currently share [SelfDeployment.php](../../Recipes/SelfDeployment.php) and the embedded [SelfExtractingDeployment.php](../../Recipes/SelfExtractingPHP/SelfExtractingDeployment.php) installer. Extract reusable package generation and host installation logic without making `.phx` a requirement of the generic deployment pipeline interface. Preserve host configuration, local vendors, shared/copied directories, installer execution, deployment log reporting and critical-error recovery. Pass all host attributes, including installation paths and the PHP executable, through public setters. Define release retention, local vendors and other pipeline-only settings as UXON properties only where no corresponding host attribute exists. Preserve the effective legacy `keep_releases` value, including its deployment-config override, during migration. Replace Windows-specific package concatenation and other shell assumptions with portable PHP operations or OS adapters.
 
 For every retained option, migrate the project's legacy deployment recipe selection to pipeline configuration on each host before allowing hosts to choose different strategies. Removed options need an explicit replacement or a clear migration error; a custom script or SSH workflow cannot be converted automatically without knowing its behavior.
 
@@ -90,15 +90,17 @@ The inventory includes explicit recipe `get()`/`set()` keys, interpolation keys 
 | `release_name`, CLI `build` | Action-generated build name / explicit deployment task build reference. | Eliminate scanning the archive directory to guess the newest build. On-demand release selection needs its own agreed policy. |
 | `archiv_name` | Build artifact metadata/result. | Preserve historical filenames; new names are generated, not supplied as shell fragments. |
 | `builds_archives_path` | Managed artifact storage and isolated run workspace. | Derived from existing project storage configuration; not an arbitrary per-host archive location. |
-| `path_to_installation_root`, `relative_deploy_path` | Deployment UXON properties. | Migrate host `path_abs_to_api` and `path_rel_to_releases`; preserve the empty-relative-path web-server mode. |
-| `php_path` | Deployment UXON property. | Migrate host `php_cli`; this is independent of build-server PHP selection. |
-| `keep_releases`, `deploy_config.keep_releases` | One deployment UXON property. | Preserve `deploy_config.keep_releases ?? keep_releases`, whose recipe default is `4`; do not keep duplicate sources. |
+| `path_to_installation_root` | Installation root from host `path_abs_to_api` through `setHostPathToInstallationRoot()`; no UXON equivalent. | Retain the root as a host attribute. |
+| `relative_deploy_path` | Removed with host `path_rel_to_releases`, without substitution. | Intentional v3 breaking change and exception to configuration preservation. Do not migrate the value or preserve legacy relative-path layouts or empty-relative-path web-server behavior. |
+| `php_path` | Host `php_cli` through `setHostPhpExecutable()`; no UXON equivalent. | Retain the host attribute; this is independent of build-server PHP selection. |
+| `keep_releases`, `deploy_config.keep_releases` | Pipeline UXON `keep_releases` in the existing host `deploy_config`. | Keep the existing key and location. Preserve `deploy_config.keep_releases ?? keep_releases`, whose recipe default is `4`; do not keep duplicate sources. |
 | `shared_dirs`, `copy_dirs` | Deployment UXON lists. | Preserve defaults and validate overlap/path boundaries. |
 | `shared_files` | Candidate deployment UXON list, default `[]`, only for prototypes implementing file sharing. | Legacy SSH network tasks consume it, but retained self-deployment does not embed or install shared files. Do not silently advertise parity; implement and test before exposing it on self-extractor prototypes. |
 | `config_dir` | Fixed `config` convention initially. | The self-extractor independently hard-codes `config`. Making it configurable requires updating every consumer, not just migrating this unused-on-that-path variable. |
 | `deploy_config.local_vendors` | Deployment UXON `local_vendors`. | Preserve both local-app retention and vendor-directory copying behavior. |
-| `deploy_config.default_app_config` | Separate host application-configuration payload. | Preserve filename map and merge behavior, without turning credentials into pipeline properties. |
-| `deploy_config` (other keys) | Explicit migration review. | The retained installer reads the three keys listed above; report unknown/custom keys for manual mapping rather than dropping them. |
+| `deploy_config.local_packages` | Existing deployment UXON `local_packages`, unchanged. | Preserve listed packages by full Composer name (`vendor/package`), copying them unchanged from the previous release in place of the deployed copies, even when their vendor is included in the deployment. This is existing behavior, not a new feature or a transformation of `local_vendors`. |
+| `deploy_config.default_app_config` | Pipeline UXON property `config` in the existing host `deploy_config`. | Rename only the property to clarify that these values override host application configuration. Preserve the filename map, values and merge behavior; do not move them into a separate payload. |
+| `deploy_config` (other keys) | Existing host UXON used to configure the selected deployment pipeline prototype. | Keep supported keys such as `keep_releases` and `local_vendors` in place. Report unknown/custom keys for manual mapping rather than dropping them. |
 | `connection_config` (`url`, `user`, `password`) | Existing host connection, resolved at execution. | Keep URL/authentication in connection configuration; redact secrets. Proposed TLS trust is a pipeline transport setting, with verification always enabled. |
 | `stage`, `host_short` | Host/task metadata. | Stage and host alias are not deployment-control options; do not use an editable alias as attempt correlation. |
 | `host_deploy_path`, `deploy_path`, `release_path`, `target_dir`, `previous_release` | Derived installation/run paths. | Compute from validated configuration and run identity; the previous release is discovered at runtime. |
@@ -142,23 +144,22 @@ A new deployment run is intended for each new instance request, including repeat
 
 When a new deployment run is started, the pipeline waits until its package is ready and returns the `.phx` file as a download response. It cannot wait for host installation to finish before providing the package required for that installation.
 
-## Example pipeline UXONs and recipe variable migration
+## Pipeline configuration
 
-These examples propose the configurable surface of v3; they are not configurations supported by the current implementation. Prototype names, selectors and property names below are illustrative until the discovery and schema decisions are approved. `prototype` represents the separately selected prototype (stored in `prototype_file` for build variants); the remaining properties represent its UXON settings (stored in `config_uxon`). This does not prescribe storing the selector inside the UXON editor's value.
-
-The examples cover every retained workflow and the new on-demand workflow. Asset-fix and scheduled polling are shown as settings of Composer and pull prototypes, respectively; Azure is shown as a specialized manual-transfer prototype. These are proposals, not resolutions of the corresponding open decisions. Removed clone, SSH and arbitrary custom-script recipes intentionally have no new example. An app-owned replacement prototype must document its own UXON.
+The chapters shows how the new pipeline prototypes will be configured. It includes UXON examples and property lists per prototype.
 
 ### Configuration boundaries
 
 Most persistent recipe options should become documented, typed UXON properties, but not every recipe variable is an option:
 
-- Pipeline UXON defines repeatable workflow settings: timeouts, archive contents, installation paths, copied/shared directories, release retention and local vendors.
+- Pipeline UXON defines repeatable workflow settings only where no corresponding host attribute exists, such as timeouts, archive contents, copied/shared directories, release retention and local vendors. All host attributes, including the installation root, PHP executable and operating system, are supplied through public setters and must not have duplicate UXON properties.
+- This UXON configuration is build the actions like `\axenox\Deployer\Actions\Build` and `Deploy` from their input and from the metamodel entities these actions access. The actions then instantiate the corresponding prototype via `PipelineFactory`.
 - Build-variant `config_uxon` supplies prototype settings, including Composer JSON/authentication for `ComposerInstall`. Build tasks supply run-specific values such as the target PHP version, version, comment and notes; do not duplicate those in pipeline UXON.
-- Deployment tasks supply the selected build artifact, host identity, attempt identity and resolved host connection/application configuration. Do not let pipeline UXON override the action-owned run identity or status.
-- Connections and secret references remain outside the pipeline UXON. In particular, do not copy exported connection passwords or application secrets into examples or editor presets.
+- Deployment tasks supply run-specific inputs and attempt identity; only release deployment tasks require a selected build artifact. Host attributes and resolved connections are supplied through setters. The existing host `deploy_config` UXON configures the selected pipeline prototype, including its `config` property for remote application-configuration overrides. Do not let pipeline UXON override the action-owned run identity or status.
+- Host connection credentials remain in connection configuration, not duplicated in pipeline UXON. The `config` property contains remote application-configuration overrides and may contain sensitive values; redact these from logs and diagnostics and protect generated packages containing them. Secret storage/reference details remain part of the open security decision. Do not copy connection passwords or application secrets into examples or editor presets.
 - Generated artifact/workspace paths and OS-specific command strings remain internal. Configuring a supported workflow is not configuring arbitrary shell commands or installer source files.
 
-Omitted properties in the examples use the proposed prototype defaults below. Each example is independent, not an instruction to merge it with another JSON block. Deployment examples use generic Linux paths; a Windows host can use `"path_to_installation_root": "C:/Applications/example"` and its own PHP executable. Paths are interpreted by the selected host OS adapter, not by the build server's OS.
+Omitted properties in the examples use the proposed prototype defaults below. Each example is independent, not an instruction to merge it with another JSON block. Installation paths and the PHP executable are host attributes, not properties in these JSON examples. A Windows host can use `C:/Applications/example` as its installation root and its own PHP executable; actions pass both through setters. Paths are interpreted by the selected host OS adapter, not by the build server's OS.
 
 ### Composer build pipeline
 
@@ -187,7 +188,7 @@ Replaces `ComposerInstallAssetFix` using the same proposed prototype:
 
 ```json
 {
-	"prototype_file": "\\axenox\\Deployer\\BuildPipelines\\ComposerInstall",
+	"prototype_file": "\\axenox\\Deployer\\Pipelines\\Build\\ComposerInstall",
 	"config_uxon": {
 		"composer_timeout": 1200,
 		"source_files": ["vendor", "composer.json", "composer.lock", "composer.phar"],
@@ -198,40 +199,50 @@ Replaces `ComposerInstallAssetFix` using the same proposed prototype:
 
 The workaround uses asset packages from the previous successful build's lock file. The no-previous-lock behavior still needs a decision; this example does not imply silently disabling the requested workaround.
 
+### Shared deployment pipeline properties 
+
+All deployment pipelines will need some common properties as they are instantiated for a `host` metaobject row. However, the pipeline prototypes themselves should not know the hosts model - they get all information they need from deployment actions. 
+
+#### Host attributes
+
+Every host will still have some global properties, which are needed for deployments too: 
+
+| Host attribute | Purpose and proposed default | Pipeline API |
+| --- | --- | --- |
+| `path_abs_to_api` | Required absolute host installation root. | Method `setHostPathToInstallationRoot()` for all deployment pipelines
+| `path_rel_to_releases` | Obsolete deployment directory below the installation root; removed in v3. | Removed without substitution or value migration; intentional major-version breaking change. |
+| `php_cli` | Host PHP executable, default `php`; resolve/validate as an executable, not a free-form command. | Method `setHostPhpExecutable()` for all deployment recipes 
+| `operating_system` | Host operating system | Public setter on deployment pipelines; build-server OS resolution is separate. |
+| `project__alias` | Project subfolder in the deployer data folder. Pipelines will search for deployable artifacts there | Public methods to set artifact paths 
+| `data_connection` | UID of the data connection for pipelines, that contact the host actively | Additional DeploymentViaConnectionInterface for corresponding pipelines. The interface shall add `setConnection(DataConnectionInterface)`.
+
+All host attributes must be passed to pipeline instances through public setters, never through UXON properties. The table above is not an exception list: the same rule applies to every host attribute used by a pipeline. Actions resolve these values from the host model; pipeline prototypes do not read that model themselves. A setting may be exposed as a UXON property only if no corresponding host attribute exists. UXON must not provide an alternative value for, or override, a host attribute. The existing `deploy_config` attribute is the pipeline UXON container: its nested keys are prototype properties, not separate host attributes. Actions use that UXON to configure the prototype rather than introducing another configuration store or wrapping it in a duplicate UXON property.
+
 ### Shared self-extractor deployment properties
 
 Push, pull, manual transfer, Azure manual transfer and on-demand prototypes share the applicable installation properties. A shared implementation should avoid duplicated property logic without making self-extractors mandatory for other deployment prototypes.
 
 | Proposed property | Purpose and proposed default | Legacy source |
 | --- | --- | --- |
-| `path_to_installation_root` | Required absolute host installation root. | Host `path_abs_to_api`. |
-| `relative_deploy_path` | Deployment directory below that root; allow an empty string for the existing root/web-server-config mode. No assumed migration value. | Host `path_rel_to_releases`. |
-| `php_path` | Host PHP executable, default `php`; resolve/validate as an executable, not a free-form command. | Host `php_cli`. |
-| `keep_releases` | Host release retention, default `4`; preserve the effective legacy override. Validation and protection of active/previous releases must follow the agreed retention rules. | `deploy_config.keep_releases`, otherwise recipe `keep_releases`. |
-| `shared_dirs` | Directories persisted across releases, default `["backup", "data", "logs", "translations"]`. | Recipe `shared_dirs`. |
-| `copy_dirs` | Directories copied from the previous release, default `["config"]`. | Recipe `copy_dirs`. |
-| `local_vendors` | Vendor namespaces whose local apps must survive replacement, default `[]`. | `deploy_config.local_vendors`. |
+| `config` | Required UXON property containing remote application-configuration overrides per config file, including centrally controlled critical settings. It remains inside the existing host `deploy_config` UXON used to configure the pipeline. | Rename `deploy_config.default_app_config` to `deploy_config.config`, preserving its filename-to-configuration map, values and merge behavior. Sensitive values require redaction and package protection. |
+| `keep_releases` | Frequently used config Host release retention, default `4`; preserve the effective legacy override. Validation and protection of active/previous releases must follow the agreed retention rules. | `deploy_config.keep_releases`, otherwise recipe `keep_releases`. |
+| `shared_dirs` | Directories persisted across releases, default `["backup", "data", "logs", "translations"]`. No real need to change this, but a visible config option is good. | Recipe `shared_dirs`. |
+| `copy_dirs` | Directories copied from the previous release, default `["config"]`. No real need to change this, but a visible config option is good.  | Recipe `copy_dirs`. |
+| `local_vendors` | Vendor namespaces whose local apps must survive replacement, default `[]`. Use almost every time. | `deploy_config.local_vendors`. |
+| `local_packages` | Existing list of full Composer package names (`vendor/package`) to exclude from replacement, default `[]`. Copy these packages unchanged from the previous release instead of using the deployed copies, even when their vendor is included in the deployment. | `deploy_config.local_packages`; retain the key, values and existing behavior unchanged. |
 | `php_memory_limit` | Host installer PHP memory limit, proposed default `2G`. | Hard-coded installer and execution instructions. |
 
 Directory entries must be relative, bounded to the intended installation paths and non-conflicting. Do not allow traversal, accidental sharing of an entire release or a directory listed as both copied and shared. The installer currently fixes `config`, `releases`, `shared`, `current` and the public `exface` link; those names remain prototype conventions in these examples, not additional path knobs with unverified support.
 
-`default_app_config` remains application configuration delivered to the installed workbench, separate from deployment-control properties. Its transport/storage and secret resolution still need a contract; do not hide it in an untyped replacement `deploy_config` property. Migration must preserve its existing filename-to-configuration map and merge behavior, including the effective installation name.
-
 ### Self-extractor with Updater push
 
-Replaces `LocalBldUpdaterPush`. The host's existing connection reference supplies the Updater URL and authentication. Proposed `tls_ca_file` selects a build-server trust bundle; omitting it uses the system trust store. Certificate verification is mandatory, not an opt-out setting.
+Replaces `LocalBldUpdaterPush`. The host's existing connection reference supplies the Updater URL and authentication. 
 
 ```json
 {
-	"path_to_installation_root": "/srv/example",
-	"relative_deploy_path": "application",
-	"php_path": "/usr/bin/php",
 	"keep_releases": 4,
-	"shared_dirs": ["backup", "data", "logs", "translations"],
-	"copy_dirs": ["config"],
 	"local_vendors": ["examplevendor"],
-	"php_memory_limit": "2G",
-	"tls_ca_file": "/etc/ssl/certs/example-ca.pem"
+	"php_memory_limit": "2G"
 }
 ```
 
@@ -241,35 +252,24 @@ Upload errors must produce a failed preparation/transfer outcome with response e
 
 Replaces `LocalBldUpdaterPull`. Publication uses the existing authenticated facade/host relationship; download URLs and callback credentials are derived, not configured as duplicate UXON strings.
 
-```json
-{
-	"path_to_installation_root": "/srv/example",
-	"relative_deploy_path": "application",
-	"php_path": "/usr/bin/php",
-	"keep_releases": 4,
-	"shared_dirs": ["backup", "data", "logs", "translations"],
-	"copy_dirs": ["config"],
-	"local_vendors": [],
-	"php_memory_limit": "2G",
-	"scheduled_polling": false
-}
-```
-
-#### Updater pull with scheduled polling
-
-Replaces `LocalBldUpdaterCron`, preserving scheduled-operation intent without pretending that the pipeline installs a scheduler:
+Typical configuration:
 
 ```json
 {
-	"path_to_installation_root": "/srv/example",
-	"relative_deploy_path": "application",
-	"php_path": "/usr/bin/php",
 	"keep_releases": 4,
-	"scheduled_polling": true
+	"local_vendors": ["client"],
+	"php_memory_limit": "2G"
 }
 ```
 
-`scheduled_polling` selects host-side scheduling guidance/preset metadata; it does not change the package into an on-demand deployment. The actual schedule and invocation of PackageManager SelfUpdate remain the host operator's responsibility. No cron expression is inferred from the legacy recipe because it defines none.
+### Self-extractor with Updater polling
+
+Replaces `LocalBldUpdaterCron` recipe, preserving scheduled-operation intent without pretending that the pipeline installs a scheduler. Currently its just a visual aid to distinguish between automatically and manually updated projects/hosts. It should extend `LocalBldUpdaterPull` class without changes.
+
+The instructions printed in the end of the deployment must state, that the polling must be configured manually:
+
+- by adding a background task in `Administration > BG Processing > Scheduler` to run `axenox.PackageManager.SelfUpdate` action or 
+- by setting up a scheduler/CRON job on OS level running the action via CLI: `vendor/bin/action axenox.PackageManager:SelfUpdate`
 
 ### Self-extractor with manual transfer
 
@@ -277,12 +277,7 @@ Replaces `LocalBldUsbSelfExtractor`. This prototype prepares a downloadable pack
 
 ```json
 {
-	"path_to_installation_root": "/srv/example",
-	"relative_deploy_path": "application",
-	"php_path": "/usr/bin/php",
 	"keep_releases": 4,
-	"shared_dirs": ["backup", "data", "logs", "translations"],
-	"copy_dirs": ["config"],
 	"local_vendors": ["examplevendor"],
 	"php_memory_limit": "2G"
 }
@@ -294,12 +289,7 @@ Replaces `LocalBldAzureAppServiceManualInstall`. Proposed `app_service_name` rep
 
 ```json
 {
-	"path_to_installation_root": "/home/site",
-	"relative_deploy_path": "application",
-	"php_path": "php",
 	"keep_releases": 4,
-	"shared_dirs": ["backup", "data", "logs", "translations"],
-	"copy_dirs": ["config"],
 	"local_vendors": [],
 	"php_memory_limit": "2G",
 	"app_service_name": "example-service"
@@ -314,13 +304,7 @@ New prototype without a legacy equivalent:
 
 ```json
 {
-	"prototype": "\\axenox\\Deployer\\DeploymentPipelines\\OnDemandDeployment",
-	"path_to_installation_root": "/srv/example",
-	"relative_deploy_path": "application",
-	"php_path": "/usr/bin/php",
 	"keep_releases": 4,
-	"shared_dirs": ["backup", "data", "logs", "translations"],
-	"copy_dirs": ["config"],
 	"local_vendors": [],
 	"php_memory_limit": "2G"
 }
@@ -328,61 +312,60 @@ New prototype without a legacy equivalent:
 
 This demonstrates installation configuration only. Desired-build selection, first-instance behavior, request/retry identity, preparation wait limits and callback correlation remain unresolved. Do not add an apparently working `latest_build`, retry key or attempt ID property before those contracts are settled. Selected builds and attempt IDs belong to run/policy resolution, not fixed installer UXON. Persistent versus disposable container directories must also be decided before treating this example as a production container configuration.
 
+## Pipeline instructions
+
+All recipes printed further instructions in the command line when they finished. This is important as it helps deployment mangers understand, if they need to take manual steps and how.
+
+Review current instructions.
+
+- Makes sure they fit the pipeline logic
+- Since we know, what OS the host runs, only print proposed commands for the expected OS.
+- Make sure rollback instructions are easy to follow.
+- Make sure automated pipelines (e.g. updater pull) include first-time instructions. Currently we use:
+	```
+	curl -v -L -u "<ota_user>:<ota_password>" -o install.phx "https://powerui.mydomain.com/api/proxy/ota/<projekt>/<host_uid>"
+php -d memory_limit=2G install.phx
+	```
+
 ## Open items and decisions
 
-The items below are unresolved requirements, not additional approved features. Recommendations are starting points for decisions. Mark an item `[x]` once its answer and acceptance criteria have been recorded in this roadmap; this does not mean the implementation is complete.
+The tables below track remaining questions and recorded decisions, not additional approved features. Recommendations are starting points for decisions. The Outcome column records agreed answers, including partial decisions; Pending means no outcome has been recorded yet. Mark an item `[x]` once its full answer and acceptance criteria have been recorded in this roadmap; this does not mean the implementation is complete.
 
 ### Architecture and configuration
 
-| Open item | What is unclear or missing | Decision to record | Resolved |
-| --- | --- | --- | --- |
-| Prototype contracts and ownership | Ownership is settled: pipelines own artifact creation/deployment logic; actions own build/deployment records and persist states reported by pipelines. Pipelines stream text through generators. A final result object containing a state is proposed; exact contracts and intermediate state reporting remain open. | Define the execution inputs, `run()` signature, final result shape and intermediate state-reporting mechanism without mixing structured objects into the text stream. Specify transaction and exception handling. Keep HTTP handling and self-extractor generation optional; decide whether ordinary pull uses the HTTP capability too. See the ownership and streaming contract below. | [ ] |
-| Host deployment pipeline ownership | Resolved: each host stores its deployment pipeline prototype selection and UXON configuration. Pipeline-specific settings such as `keep_releases`, `local_vendors` and deployment paths belong in that UXON, not in a project-wide deployment configuration. | The host editor must offer a discovered deployment prototype dropdown and a matching UXON editor. Deployment execution must use that host's selected prototype and settings, allowing hosts in the same project to use different pipelines. See Host deployment configuration below. | [x] |
-| Configuration location and precedence | Resolved: each build variant stores its selected build prototype in `prototype_file` and its prototype settings in `config_uxon`; each host owns its deployment pipeline configuration. General override rules remain open. | Specify precedence among prototype defaults, stored UXON and run-specific task values. Distinguish pipeline settings from connection secrets and application configuration sent to hosts. Define migration precedence for legacy host fields and deployment-config overrides, without keeping duplicate sources for the same pipeline property. | [ ] |
-| Prototype discovery and editor integration | `BuildPipelines` and `DeploymentPipelines` are proposed folder names, but canonical paths, selector format and UXON schemas are not defined. The host and build-variant prototype dropdowns and prototype-aware UXON editors are required; their exact integration remains open. | Choose consistent folder/namespace conventions, discovery/factory behavior and app-qualified selectors. Define the `prototype_file` selector format and `config_uxon` schema, template choices, editor schemas, presets, validation and diagnostics for missing prototypes. Define how changing the selected prototype handles existing UXON without silent data loss. Decide whether asset-fix, scheduler and Azure variants are classes or settings/presets. Editors expose supported settings, not arbitrary stage composition. | [ ] |
-| Migration and mixed-version operation | Automatic migration is a goal rather than a defined procedure. Project-to-host and project-to-build-variant migration, removed custom/SSH values and old PackageManager clients need explicit treatment. | Define an idempotent migration with a preview/report, precedence for existing host and build-variant settings, and manual intervention for unsupported recipes. Preserve historical records and explain recovery if upgrading fails. Record minimum Core/PackageManager/PHP versions and whether existing download/log URLs and configuration remain supported during rollout. | [ ] |
-| OS adapters and standalone bootstrap | A generated self-extractor runs before the new release's autoloader is available, and a fresh container may have no existing Core installation. `CliCommandRunner` cannot simply be assumed available at that point. | Define the supported build-server/host OS and PHP matrix, adapter operations, selection and prerequisites. Decide how a standalone `.phx` receives the required adapter/runner code without loading the installation it is replacing. Include archive extraction, symlink permissions, executable discovery and web-server configuration. | [ ] |
+| Open item | What is unclear or missing | Decision to record | Outcome | Resolved |
+| --- | --- | --- | --- | --- |
+| Prototype contracts and ownership | Detailed task/result accessors, intermediate state reporting and execution failure handling remain open. | Complete the task/result APIs and intermediate state-reporting mechanism without mixing structured objects into the text stream. Specify transaction boundaries and exception handling. Decide whether ordinary pull uses the optional HTTP capability too. | Pipelines perform the work; actions own records and persist reported states. `PipelineInterface::run(PipelineTaskInterface $task): \Generator` is inherited unchanged by family interfaces. Generators yield text and return `PipelineResultInterface` with `getStatus(): int`, retrieved through `getReturn()`. Reject unsupported tasks before work starts. Specialized tasks support release and configuration-only deployment; generic deployment requires neither an artifact nor `.phx`. | [ ] |
+| Host deployment pipeline ownership | No remaining ownership question; editor implementation is still required. | Verify that each host's selected prototype and settings are used, with discovered prototype selection and a matching UXON editor. | Each host owns its deployment pipeline selection and configuration. Actions supply all host attributes through public setters, never duplicate UXON properties. The existing `deploy_config` is the pipeline UXON container; its nested properties are not separate host attributes. Hosts in one project may use different pipelines. | [x] |
+| Configuration location and precedence | General precedence among prototype defaults, stored UXON and run-specific task values remains open. | Define override rules for pipeline-only settings and migration precedence when target configuration already exists, including conflicting old/new property names. Do not duplicate host attributes in UXON. | Build variants use `prototype_file` and `config_uxon`; Composer JSON/authentication belong only to the Composer prototype. Reuse host `deploy_config`; rename `default_app_config` to `config`, preserving its map, values and merge behavior. Keep `keep_releases`, `local_vendors` and existing `local_packages` in place. Package-level exclusions remain independent of vendor-level deployment. Preserve the legacy retention override `deploy_config.keep_releases ?? keep_releases`, with fallback `4`. | [ ] |
+| Prototype discovery and editor integration | Exact stored path syntax, discovery/factory validation, editor schemas and prototype-switch behavior remain open. | Define app-qualified path serialization, cross-app discovery, wrong-family/missing-prototype diagnostics, schemas for build `config_uxon` and host `deploy_config`, presets and validation. Preserve existing UXON when changing prototypes without silent loss. Settle Azure specialization structure. | Use `Pipelines/Build` and `Pipelines/Deploy` with corresponding app namespaces; helpers live in `Common/Pipelines`. Selector classes, discovery metaobjects and `PipelineFactory::createPipelineFromUxon()` are named below. Selectors accept paths or PHP classes; store paths in the database. Asset-fix is a Composer setting; polling subclasses pull. Editors configure supported templates, not arbitrary stages. | [ ] |
+| Migration and mixed-version operation | The executable upgrade procedure, unsupported-recipe handling and mixed-version compatibility remain open. | Define idempotent migration with a preview/report, existing-target precedence and manual intervention for unsupported clone/custom/SSH recipes. Explain upgrade recovery. Record minimum Core/PackageManager/PHP versions and support for existing URLs and older clients. | Preserve projects, variants, hosts and historical runs. Use SQL for moved attributes and recipe selections, omit empty migrated UXON properties and rename removed database structures to `trash_*`. Reuse host UXON and rename only `default_app_config` to `config`. Remove `path_rel_to_releases` and `relative_deploy_path` without substitution, value migration or legacy-layout guarantees: an approved v3 breaking change. | [ ] |
+| OS adapters and standalone bootstrap | A generated self-extractor runs before the new release's autoloader is available, and a fresh container may have no existing Core installation. `CliCommandRunner` cannot simply be assumed available at that point. | Define the supported build-server/host OS and PHP matrix, adapter operations, selection and prerequisites. Decide how a standalone `.phx` receives the required adapter/runner code without loading the installation it is replacing. Include archive extraction, symlink permissions, executable discovery and web-server configuration. | Use Core `CliCommandRunner` for commands; standalone provisioning and adapter contracts remain undecided. | [ ] |
 
 ### On-demand deployment semantics
 
 The current [DeployerFacade](../../Facades/DeployerFacade.php) already exposes `?redeploy=true`, selects pending deployments in the range `60 <= status < 90`, sets status `62` before the response stream is consumed, and intends to reuse the last successful deployment when no pending one exists. The new design must specify which behavior is retained and which is replaced.
 
-| Open item | What is unclear or missing | Decision to record | Resolved |
-| --- | --- | --- | --- |
-| Complete state machine | The on-demand section repeats the `>= 62 and < 90` rule. It does not cover preparation (the Deploy action uses `50`), failure (`90`), success (`99`), no history or abandoned attempts. Returning a pending deployment at `60` also needs reconciliation with "a new deployment every time". | Replace the duplicate rules with a complete transition table. Define publication versus download versus installation completion, timeout/abandonment states and whether reuse at `60` is an explicit exception to one attempt per request. | [ ] |
-| Desired release versus last successful release | "Latest release" and "last successful deployment" are not equivalent. If a newly published build is being installed, fails or has not yet succeeded on this host, selecting the last successful attempt can return an older build. | Define an authoritative desired/published build for each host or project, how variants are selected, and whether failed installation changes that target. Decide first-container behavior, promotion, deliberate rollback and what happens when the target build's artifact is missing. | [ ] |
-| Container instance identity and callback correlation | Several instances can share one configured host. Current log callbacks select its latest pending deployment rather than addressing a specific attempt, so overlapping requests/logs need a new correlation contract. | Keep the host as deployment policy and give each attempt a unique ID; decide whether instance IDs are also needed. Bind authenticated downloads and callbacks to the correct attempt. Specify backward compatibility for clients that send only the host UID. | [ ] |
-| Concurrent requests, artifacts and retries | Generated `.phx` names currently depend on build and host, and the Deploy action generates a project-level `deploy.php`. Fresh attempts for the same host/build must not overwrite configuration, mix logs or delete artifacts still being downloaded. Client retries must not accidentally create unlimited installations. | Define isolation/locking, unique workspace and artifact ownership, and atomic publication. Distinguish a new instance request from retrying the same attempt, including interrupted downloads, retry keys and whether immutable build data can be reused safely. | [ ] |
-| Waiting and HTTP behavior | "Waits for it to finish" could mean package preparation or completed host installation. Waiting for installation before returning its package would be circular. Preparation may also outlast HTTP/proxy limits. | Wait only until the download artifact is ready. Choose bounded synchronous preparation or an asynchronous prepare/poll protocol supported by the boot client. Specify timeout, cancellation, no-release/error responses, cache policy, retry guidance and the future meaning of `?redeploy=true`. | [ ] |
-| Container persistence and rollout | Rebuilding deployment records does not define what survives container restart, how all replicas receive a new release, or how concurrent instances run database installers. | Specify persistent/shared versus disposable paths, startup readiness and failure behavior. Decide whether updates apply only at startup or trigger an external rollout. Define who serializes database migrations across replicas and how incompatible application/database versions are handled. | [ ] |
+| Open item | What is unclear or missing | Decision to record | Outcome | Resolved |
+| --- | --- | --- | --- | --- |
+| Complete state machine | The on-demand section repeats the `>= 62 and < 90` rule. It does not cover preparation (the Deploy action uses `50`), failure (`90`), success (`99`), no history or abandoned attempts. Returning a pending deployment at `60` also needs reconciliation with "a new deployment every time". | Replace the duplicate rules with a complete transition table. Define publication versus download versus installation completion, timeout/abandonment states and whether reuse at `60` is an explicit exception to one attempt per request. | Pending. | [ ] |
+| Desired release versus last successful release | "Latest release" and "last successful deployment" are not equivalent. If a newly published build is being installed, fails or has not yet succeeded on this host, selecting the last successful attempt can return an older build. | Define an authoritative desired/published build for each host or project, how variants are selected, and whether failed installation changes that target. Decide first-container behavior, promotion, deliberate rollback and what happens when the target build's artifact is missing. | Pending. | [ ] |
+| Container instance identity and callback correlation | Several instances can share one configured host. Current log callbacks select its latest pending deployment rather than addressing a specific attempt, so overlapping requests/logs need a new correlation contract. | Keep the host as deployment policy and give each attempt a unique ID; decide whether instance IDs are also needed. Bind authenticated downloads and callbacks to the correct attempt. Specify backward compatibility for clients that send only the host UID. | Pending. | [ ] |
+| Concurrent requests, artifacts and retries | Generated `.phx` names currently depend on build and host, and the Deploy action generates a project-level `deploy.php`. Fresh attempts for the same host/build must not overwrite configuration, mix logs or delete artifacts still being downloaded. Client retries must not accidentally create unlimited installations. | Define isolation/locking, unique workspace and artifact ownership, and atomic publication. Distinguish a new instance request from retrying the same attempt, including interrupted downloads, retry keys and whether immutable build data can be reused safely. | Pending. | [ ] |
+| Waiting and HTTP behavior | Preparation may outlast HTTP/proxy limits; protocol and deadlines remain open. | Choose bounded synchronous preparation or an asynchronous prepare/poll protocol supported by the boot client. Specify timeout, cancellation, no-release/error responses, cache policy, retry guidance and the future meaning of `?redeploy=true`. | Wait only until the package is ready to download, not until host installation completes. | [ ] |
+| Container persistence and rollout | Rebuilding deployment records does not define what survives container restart, how all replicas receive a new release, or how concurrent instances run database installers. | Specify persistent/shared versus disposable paths, startup readiness and failure behavior. Decide whether updates apply only at startup or trigger an external rollout. Define who serializes database migrations across replicas and how incompatible application/database versions are handled. | Pending. | [ ] |
 
 ### Missing safeguards and completion criteria
 
-| Open item | What is unclear or missing | Requirement or decision to record | Resolved |
-| --- | --- | --- | --- |
-| Critical failure, rollback and downtime | Retaining existing installation logic does not define exactly when a release is safe to activate. Switching a symlink back cannot necessarily undo a partially applied database migration. | Define critical versus non-critical failures, activation order, health/readiness checks and rollback guarantees for files, configuration and databases. Keep the previous working release until success is confirmed, and state manual recovery boundaries and expected downtime. | [ ] |
-| Credentials, artifact trust and execution permissions | UXON can expose credentials; `.phx` files contain executable code and host-tailored configuration. TLS is disabled in the current push recipe, and containers may start with no stored authentication state. | Define secret references/redaction, host and attempt authorization, bootstrap credentials and least-privilege execution. Require verified TLS and decide whether checksums or signatures are needed. Protect stored packages/config files and ensure generated execution never incorporates unvalidated operator input. | [ ] |
-| Logs, exit codes and remote failures | Existing paths infer some failures from console text. Text streaming through pipeline generators is required; LogBooks also need to preserve remote installation evidence even when a callback cannot reach the build server. | Specify structured statuses and exit-code handling separately from streamed text rather than success inferred solely from message text. Correlate logs with attempts, define buffering/retry of remote callbacks and ensure logging failures do not prevent cleanup or rollback. Decide retention/redaction policy. | [ ] |
-| Reproducibility and cleanup | Preserving Composer install alone does not define lock-file policy, failed-build isolation or artifact retention. On-demand attempts can accumulate indefinitely even if host release retention is bounded. | Define how dependencies are resolved/pinned and how archived lock files/BOMs describe the actual build. Set separate retention rules for build archives, host-tailored packages, attempts and logs. Protect promoted/in-use artifacts and clean failed workspaces without affecting concurrent jobs. | [ ] |
-| Verification and cutover | Prototype skeletons and documentation alone do not establish behavior parity or a release gate. | Add focused PHPUnit coverage for pipeline contracts, configuration migration and state transitions, plus end-to-end build/install/download tests on supported OS combinations. Include simultaneous container startup, repeated/interrupted downloads, callback attribution, failed installation and older-client compatibility. Remove legacy execution and the dependency only after replacement pipelines pass their acceptance checks. | [ ] |
+| Open item | What is unclear or missing | Requirement or decision to record | Outcome | Resolved |
+| --- | --- | --- | --- | --- |
+| Critical failure, rollback and downtime | Retaining existing installation logic does not define exactly when a release is safe to activate. Switching a symlink back cannot necessarily undo a partially applied database migration. | Define critical versus non-critical failures, activation order, health/readiness checks and rollback guarantees for files, configuration and databases. Keep the previous working release until success is confirmed, and state manual recovery boundaries and expected downtime. | Pending. | [ ] |
+| Credentials, artifact trust and execution permissions | Secret storage/reference details, bootstrap authorization, package access controls and integrity verification remain open. | Define secret storage/references and redaction coverage, host and attempt authorization, bootstrap credentials and least-privilege execution. Decide whether checksums or signatures are needed. Ensure generated execution never incorporates unvalidated operator input. | Connection credentials remain in connection configuration. Pipeline UXON `config` may contain sensitive application overrides; redact these and protect generated packages. Verified TLS is required. | [ ] |
+| Logs, exit codes and remote failures | Intermediate/remote status handling and durable logging remain open; remote evidence must survive callback failures. | Define command exit-code mapping and remote failure reporting. Correlate logs with attempts, define buffering/retry of remote callbacks and ensure logging failures do not prevent cleanup or rollback. Decide retention/redaction policy. | Generators stream text only; final status comes from `PipelineResultInterface`, not inferred console text. Actions persist run states. | [ ] |
+| Reproducibility and cleanup | Preserving Composer install alone does not define lock-file policy, failed-build isolation or artifact retention. On-demand attempts can accumulate indefinitely even if host release retention is bounded. | Define how dependencies are resolved/pinned and how archived lock files/BOMs describe the actual build. Set separate retention rules for build archives, host-tailored packages, attempts and logs. Protect promoted/in-use artifacts and clean failed workspaces without affecting concurrent jobs. | Pending. | [ ] |
+| Verification and cutover | Prototype skeletons and documentation alone do not establish behavior parity or a release gate. | Add focused PHPUnit coverage for pipeline contracts, configuration migration and state transitions, plus end-to-end build/install/download tests on supported OS combinations. Include simultaneous container startup, repeated/interrupted downloads, callback attribution, failed installation and older-client compatibility. Remove legacy execution and the dependency only after replacement pipelines pass their acceptance checks. | Pending. | [ ] |
 
 Implementation should start once the configuration owners, lifecycle contracts and on-demand state/identity rules are settled. These choices determine the model migration and interfaces; leaving them until after prototype implementation risks incompatible contracts and unsafe concurrent deployments.
-
-## Approach
-
-### 1. Analyze existing code
-
-- Analyze the legacy recipe files and map retained workflows to pipeline templates.
-
-### 2. Plan the new classes
-
-- Analyze shared behavior and differences between legacy recipes, then plan purpose-specific pipeline prototype classes.
-- Define `BuildPipelineInterface` and `DeploymentPipelineInterface` using the agreed ownership and streaming model. Keep self-extractor and HTTP capabilities separate from the generic deployment contract.
-- Decide whether abstract base classes reduce meaningful duplication.
-- Create pipeline prototype skeletons for every retained workflow, then implement and verify behavior before cutover.
-- Write class documentation with template purpose, supported settings, prerequisites and examples.
-- Define release retention, local vendors and deployment paths as UXON properties of the applicable deployment pipeline prototypes. Store their values with the selected prototype on each host; migrate legacy host fields and deployment configuration into that UXON.
-
 
 ## Technical details of the new architecture 
 
@@ -401,9 +384,9 @@ The host editor provides:
 - A deployment pipeline prototype dropdown populated through prototype discovery.
 - A UXON editor using the selected prototype's property definitions, defaults, documentation, autosuggest and validation.
 
-Deployment-specific settings currently stored on hosts, including `keep_releases`, `local_vendors` and deployment paths, become UXON properties of the applicable pipeline prototypes. Their values remain host-owned, but are consolidated into pipeline configuration rather than maintained in parallel host fields. Only prototypes that need a setting expose it; for example, release retention is relevant to release-directory strategies, not every deployment pipeline.
+Every host attribute used by a pipeline remains authoritative on the host and is passed to the pipeline through a public setter. This includes the installation root, PHP executable, operating system and connection reference; none may also be defined as a UXON property. Pipeline UXON contains only settings without a corresponding host attribute. Only prototypes that need such a setting expose it; for example, release retention is relevant to release-directory strategies, not every deployment pipeline.
 
-Host identity, project membership and connection references remain distinct from pipeline-specific settings. Application configuration destined for the installed workbench must also remain distinguishable from the settings that control deployment itself. Exact model attribute names and legacy-to-UXON mappings remain part of migration planning.
+Host identity, project membership and connection references remain distinct from pipeline-specific settings. Reuse the existing host `deploy_config` UXON as configuration for the selected deployment pipeline prototype. Rename its `default_app_config` property to `config`; other supported properties, including `keep_releases` and `local_vendors`, remain in their existing location. The nested `config` property distinguishes remote application-configuration overrides from settings controlling deployment itself; it is not a separate task payload or configuration store.
 
 The Deploy action resolves the selected prototype and UXON from each target host. Long-term deployment settings belong in that host's pipeline configuration; the deployment task supplies values for the particular run. The same host-specific pipeline selection applies when the facade handles a download/on-demand request.
 
@@ -413,33 +396,88 @@ Each build variant owns its build pipeline configuration, so variants in the sam
 
 The Build action resolves the selected prototype and UXON from the build variant. Run-specific values remain on the build task; define their precedence relative to prototype defaults and stored UXON as part of the open configuration contract.
 
+### Namespaces
+
+Pipelines shall have their own namespace:
+
+- `axenox\Deployer\Pipelines`
+- `axenox\Deployer\Pipelines\Build`
+- `axenox\Deployer\Pipelines\Deploy`
+
+Only usable pipeline prototypes live in these namespaces. Abstract classes and helper go in `axenox\Deployer\Common\Pipelines`.
+
+### Selectors
+
+Pipeline prototypes will need selector class `axenox\Deployer\Common\Selectors\PipelinePrototypeSelector` and a corresponding interface `PipelinePrototypeSelectorInterface`. A prototype selector can either be a file path (we are going to store paths in the DB) or a namespaced PHP class. Very similar to `CommonLogic/Selectors/CommunicationMessageSelector.php`.
+
+To make prototypes selectable in the UI we will need a metaobject for every pipeline subfolder:
+
+- `axenox.Deployer.pipeline_prototype_build`
+- `axenox.Deployer.pipeline_prototype_deploy`
+
+Theses can be built similarly to `exface.Core.COMMUNICATION_MESSAGE_PROTOTYPE`.
+
+### Factories
+
+The main purpose of the selector classes ist to standardize factory methods. We will have a central `axenox\Deployer\Factories\PipelineFactory` similar to the `AiFactory`.
+
+It shall have the following methods:
+
+- `createPipelineFromUxon($workbench, $selectorOrString, $uxon)`
+- Possibly other convenience methods.
+
 ### Interfaces
 
 `Build` and `Deploy` actions shall instantiate pipeline prototypes and tasks for them, pass the task to the `run()` method of the prototype, stream text output and then analyze the result object.
 
 The task object contains all the things the user has defined for this particular run. Long-term configs are part of the build and deployment UXONs.
 
-#### PipelinePrototypeInterface
+#### PipelineInterface
 
-- extends iCanBeConvertedToUxon
-- `run($task) : Generator` - should return a result object, that has `getStatus() : int` to tell the action, what status we have reached 
+- Extends `iCanBeConvertedToUxon` and provides the common executable contract for current and future pipeline families.
+- Declares `run(PipelineTaskInterface $task): \Generator`.
+- The generator yields text only. Its final PHP `return` value implements `PipelineResultInterface`; the action retrieves it through `Generator::getReturn()` after fully consuming the generator.
+- All family interfaces and implementations retain this parameter type. Do not narrow the PHP declaration to a specialized task type, which would violate parameter variance. PHPDoc may describe the supported task and generator result more precisely.
+- Implementations validate the supported task type and reject incompatible tasks explicitly before performing work.
 
 #### BuildPipelineInterface
 
-- `run(BuildTask $task) : Generator` - should return a `BuildResult` object
+- Extends `PipelineInterface` as a build-family marker; inherits `run(PipelineTaskInterface $task): \Generator` unchanged.
+- Build prototypes accept build tasks and return a `BuildResult` implementing `PipelineResultInterface` through the generator's final return value.
 
 #### DeploymentPipelineInterface
 
-- `run(DeploymentTask $task) : Generator` - should return a `DeploymentResult` object. 
+- Extends `PipelineInterface` as a deployment-family marker; inherits `run(PipelineTaskInterface $task): \Generator` unchanged.
+- Deployment prototypes accept the deployment task appropriate to their workflow and return a `DeploymentResult` implementing `PipelineResultInterface` through the generator's final return value.
+- Neither this interface nor the common deployment task/result requires a release artifact or a `.phx` file. Release installation and configuration-only changes are both deployment workflows.
+
+#### PipelineTaskInterface
+
+- Common base for run-specific input objects across pipeline families. Detailed shared accessors remain to be defined.
+- Specialized task interfaces describe workflow-specific inputs without changing the common `run()` declaration.
 
 #### BuildTaskInterface
 
+- Extends `PipelineTaskInterface`.
 - `getComment()`
 - `getNotes()`
 
 #### DeploymentTaskInterface
 
+- Extends `PipelineTaskInterface` for deployment run inputs; does not require a build artifact.
+- `ReleaseDeploymentTaskInterface` extends it and requires the selected build artifact for release installation.
+- `ConfigurationDeploymentTaskInterface` extends it for configuration-only changes without transporting a release.
+- These task distinctions allow a future configuration-change deployment prototype without forcing it through release packaging. They do not introduce arbitrary stage composition or define that future prototype's transport and activation behavior.
 
+#### PipelineResultInterface
+
+- Common result contract with `getStatus(): int` so the owning action can persist the reached state.
+- `BuildResult` and `DeploymentResult` implement this interface; workflow-specific outcome data belongs in the applicable result, not in the text stream.
+- Detailed result accessors remain to be defined. Artifact metadata is required only for workflows that produce or transport an artifact.
+
+### Class names
+
+Pipelines should inherit their class names from recipes to make them easy to recognize after the upgrade.
 
 ### Ownership and streaming contract
 
@@ -447,15 +485,29 @@ The following ownership decisions are agreed:
 
 - Each build variant owns the selected build pipeline prototype and its UXON configuration through `prototype_file` and `config_uxon`. `composer_json` and `composer_auth` are UXON properties of the `ComposerInstall` prototype, not separate build-variant attributes.
 - A build pipeline owns the logic that creates a deployable artifact.
-- A deployment pipeline owns the logic that deploys a build artifact. It controls both build-server-side deployment preparation/transfer and host-side installation logic, typically delivered in a self-extractor. The generic contract must also allow strategies without a self-extractor.
-- Each host owns the deployment pipeline prototype selection and UXON values, including applicable deployment paths, retention and local vendor settings. The prototype defines those properties; actions execute it using the host's configuration.
+- A deployment pipeline owns the logic that applies a change to a host. For release deployment, this includes build-server-side preparation/transfer and host-side installation logic, typically delivered in a self-extractor. The generic contract also supports configuration-only changes without transporting a release, and requires neither a build artifact nor a self-extractor.
+- Each host owns the deployment pipeline prototype selection and UXON values for pipeline-only settings. Actions pass all host attributes through public setters. Prototypes expose UXON properties only where no corresponding host attribute exists; UXON cannot duplicate or override host attributes.
 - The Build and Deploy actions own their respective metaobject records, which track pipeline runs. Pipelines report which states are reached and when; the actions persist those transitions. Pipelines do not directly maintain these records.
 - Pipeline execution remains a generator yielding text so actions can stream output as work happens.
 
-The proposed `run()` contract is a text-yielding generator whose final PHP `return` value is a result object containing the reached state and relevant outcome data, such as the created artifact. Calling a generator method returns a `Generator`, not that result object directly. After fully consuming it, the action retrieves the result through `Generator::getReturn()`. For deployment preparation, the returned state may be published/awaiting installation rather than deployment completed.
+The agreed `run(PipelineTaskInterface $task): \Generator` contract is a text-yielding generator whose final PHP `return` value implements `PipelineResultInterface`, containing the reached state and relevant workflow-specific outcome data, such as a created artifact where applicable. Build and deployment family interfaces inherit this signature unchanged; implementations reject unsupported task types before work starts. Calling a generator method returns a `Generator`, not that result object directly. After fully consuming it, the action retrieves the result through `Generator::getReturn()`. For deployment preparation, the returned state may be published/awaiting installation rather than deployment completed.
 
 A final result alone cannot report intermediate transitions while the generator is still running. The remaining decision is how pipelines signal those transitions independently of text output, for example through an action-provided lifecycle reporter. Host-side transitions must also reach the action-owned persistence boundary through the download/log callback flow after the build-server generator has finished. Define the exact input/result types, reporting API and exception behavior before finalizing the interfaces; do not infer lifecycle state from streamed message text.
 
 ### Running CLI commands
 
 Use the `CliCommandRunner` from the core to run commands. It works well on all our server environments. 
+
+## Migration
+
+IMPORTANT: When an existing deployer installation is upgraded to version 3, all data MUST be migrated except for explicitly approved breaking changes below.
+
+`path_rel_to_releases` and its recipe equivalent `relative_deploy_path` are an approved exception: remove them without substitution or value migration. V3 does not preserve layouts or empty-relative-path web-server behavior controlled by this setting. This is an intentional major-version breaking change, not an unresolved migration requirement. The removed database column must still follow the `trash_*` rule below.
+
+- All projects, build variants, hosts, builds and deployments must still be there after the upgrade
+- Attributes that move from one object ot another MUST get SQL migrations.
+- Recipes selected for projects must be migrated to pipeline prototypes in hosts and build variants via SQL
+- Reuse host `deploy_config` as deployment pipeline UXON. Rename `default_app_config` to `config` within it while preserving its values and merge behavior; keep other supported properties such as `keep_releases` and `local_vendors` in place.
+- Preserve host attributes as the authoritative source and pass their values through setters. Do not migrate installation root, PHP executable or other host attributes into duplicate pipeline UXON properties. Only settings without a corresponding host attribute belong in pipeline UXON.
+- Attributes, that are transformed to UXON properties must be migrated via SQL if they have non-empty values: e.g. only add `composer_auth` to the `config_uxon` of a build variant if there really was something configured - no just and empty JSON `{}`, empty string or `NULL`.
+- Deleted tables and columns must be renamed to `trash_*` according to our SQL migration rules.
