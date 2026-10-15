@@ -22,6 +22,7 @@ class DeployerApp extends App
         $sqlInstaller = new MySqlDatabaseInstaller($this->getSelector());
         $sqlInstaller
             ->setFoldersWithMigrations(['InitDB','Migrations'])
+            ->setFoldersWithStaticSql(['Views'])
             ->setDataSourceSelector('0x11eab5facf6370bab5fa0205857feb80')
             // Change the migrations table name to allow keeping deployer tables in the
             // core schema!

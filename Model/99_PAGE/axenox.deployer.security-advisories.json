@@ -10,66 +10,74 @@
     "replaces_page_selector": null,
     "created_by_user_selector": "0x11ea11bb12970e55882500505689aada",
     "created_on": "2026-10-10 01:08:59",
-    "modified_by_user_selector": "0x11ea11bb12970e55882500505689aada",
-    "modified_on": "2026-10-12 13:00:17",
+    "modified_by_user_selector": "0x31000000000000000000000000000000",
+    "modified_on": "2026-10-15 21:09:06",
     "contents": {
         "widget_type": "DataTable",
-        "object_alias": "axenox.Deployer.advisory",
+        "object_alias": "axenox.Deployer.advisory_stats",
         "filters": [
             {
-                "attribute_alias": "build_advisory__build__project"
+                "attribute_alias": "advisory__build_advisory__build__project"
             },
             {
-                "attribute_alias": "type"
+                "attribute_alias": "stage"
             },
             {
-                "attribute_alias": "level"
+                "attribute_alias": "advisory__type"
+            },
+            {
+                "attribute_alias": "advisory__level"
             }
         ],
         "columns": [
             {
-                "attribute_alias": "public_id"
+                "attribute_alias": "advisory__public_id"
             },
             {
-                "attribute_alias": "level"
+                "attribute_alias": "advisory__level"
             },
             {
-                "attribute_alias": "name"
+                "attribute_alias": "advisory__name"
             },
             {
-                "attribute_alias": "package"
+                "attribute_alias": "advisory__package"
             },
             {
-                "attribute_alias": "type"
+                "attribute_alias": "advisory__type"
             },
             {
-                "attribute_alias": "build_advisory__build__currently_deployed__host:COUNT",
+                "attribute_alias": "stage__LABEL"
+            },
+            {
+                "attribute_alias": "count_hosts",
                 "caption": "On hosts",
-                "hint": "Number of hosts, where affected version are currently deployed"
+                "hint": "Number of hosts where affected versions are currently deployed"
             },
             {
-                "attribute_alias": "build_advisory__build__currently_deployed__started_on_date:MAX",
-                "caption": "Last deployed"
+                "attribute_alias": "seen_first_on"
             },
             {
-                "attribute_alias": "build_advisory__version:LIST_DISTINCT",
-                "caption": "Use versions"
+                "attribute_alias": "seen_last_on"
             },
             {
-                "attribute_alias": "version_fixed"
+                "attribute_alias": "versions",
+                "caption": "Deployed versions"
+            },
+            {
+                "attribute_alias": "advisory__version_fixed"
             }
         ],
         "sorters": [
             {
-                "attribute_alias": "level",
+                "attribute_alias": "advisory__level",
                 "direction": "desc"
             },
             {
-                "attribute_alias": "package",
+                "attribute_alias": "advisory__package",
                 "direction": "asc"
             },
             {
-                "attribute_alias": "type",
+                "attribute_alias": "advisory__type",
                 "direction": "asc"
             }
         ],
@@ -78,6 +86,17 @@
                 "bind_to_double_click": true,
                 "action": {
                     "alias": "exface.Core.ShowObjectInfoDialog",
+                    "object_alias": "axenox.Deployer.advisory",
+                    "input_mapper": {
+                        "from_object_alias": "axenox.Deployer.advisory_stats",
+                        "to_object_alias": "axenox.Deployer.advisory",
+                        "column_to_column_mappings": [
+                            {
+                                "from": "advisory",
+                                "to": "oid"
+                            }
+                        ]
+                    },
                     "disable_buttons": false
                 }
             }

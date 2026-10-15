@@ -87,6 +87,27 @@ Duplicate **ignore** handling that drops rows cannot supply all required links.
 Deduplicating build links can be configured separately on the build/advisory pair.
 Previously saved links remain even when a later scan no longer reports a finding.
 
+## Currently Deployed Advisories
+
+The Security Advisories table uses the read-only `axenox.Deployer.advisory_stats`
+object backed by `axxdep_advisory_stats`. Each row represents one advisory and
+deployment stage. The `advisory` relation uses 1-to-1 cardinality and the physical
+column `advisory_oid`; `stage` relates `stage_oid` to the deployment stage.
+
+`count_hosts` counts distinct affected hosts. `seen_first_on` is the minimum
+`created_on` and `seen_last_on` the maximum `modified_on` of their active
+deployments. `versions` lists distinct installed package versions from the
+build-advisory links, comma-separated and sorted. Historical versions that are
+no longer deployed are excluded. Opening a row shows the related advisory.
+
+Both this view and `axenox.Deployer.currently_deployed` use the SQL view
+`axxdep_currently_deployed`: the latest successful deployment per host, excluding
+hosts whose `decommissioned_on` is at or before the current database timestamp.
+The static SQL files in `Install/Sql/MySQL/Views` recreate both views in dependency
+order on every installation. The statistics object does not inherit the data
+source's base object because the grouped view has no deployment UID or audit
+columns.
+
 ## Prerequisites
 
 PackageManager must be installed, and the advisory objects and their backing
