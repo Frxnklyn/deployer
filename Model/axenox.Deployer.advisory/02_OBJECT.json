@@ -87,9 +87,9 @@
         {
             "_EXPORT_SUMMARY": "Advisory [axenox.Deployer.advisory]",
             "CREATED_ON": "2026-10-07 13:31:03",
-            "MODIFIED_ON": "2026-10-12 12:56:30",
+            "MODIFIED_ON": "2026-10-14 13:35:10",
             "CREATED_BY_USER": "0x31000000000000000000000000000000",
-            "MODIFIED_BY_USER": "0x11ea11bb12970e55882500505689aada",
+            "MODIFIED_BY_USER": "0x11ea4f31405af6f7bfc400505689aada",
             "UID": "0x11f19b5893e733869b58025041000001",
             "READABLE_FLAG": 1,
             "WRITABLE_FLAG": 1,
@@ -184,6 +184,10 @@
                             {
                                 "attribute_alias": "build__currently_deployed__host__LABEL:LIST_DISTINCT",
                                 "caption": "On hosts"
+                            },
+                            {
+                                "attribute_alias": "build__currently_deployed__host__status:MIN",
+                                "caption": "Min. Host Status"
                             },
                             {
                                 "attribute_alias": "build__currently_deployed__started_on:MAX",
