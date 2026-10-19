@@ -4,8 +4,8 @@ SELECT
     ba.advisory_id AS advisory_oid,
     h.stage_oid,
     COUNT(DISTINCT d.host_oid) AS count_hosts,
-    MIN(d.created_on) AS seen_first_on,
-    MAX(d.modified_on) AS seen_last_on,
+    CAST(MIN(d.created_on) AS DATE) AS seen_first_on,
+    CAST(MAX(d.modified_on) AS DATE) AS seen_last_on,
     GROUP_CONCAT(DISTINCT ba.version ORDER BY ba.version SEPARATOR ', ') AS versions
 FROM axxdep_currently_deployed d
 INNER JOIN axxdep_host h ON h.oid = d.host_oid
