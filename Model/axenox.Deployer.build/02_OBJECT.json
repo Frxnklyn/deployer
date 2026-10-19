@@ -87,7 +87,7 @@
         {
             "_EXPORT_SUMMARY": "Build [axenox.Deployer.build]",
             "CREATED_ON": "2019-10-22 13:31:13",
-            "MODIFIED_ON": "2026-10-12 10:39:05",
+            "MODIFIED_ON": "2026-10-19 15:09:58",
             "CREATED_BY_USER": "0x31000000000000000000000000000000",
             "MODIFIED_BY_USER": "0x11ea11bb12970e55882500505689aada",
             "UID": "0x11e9f4d01e9108ebbacde4b318306b9a",
@@ -207,6 +207,79 @@
                                         "height": "100%",
                                         "width": "max",
                                         "hide_caption": true
+                                    }
+                                ]
+                            },
+                            {
+                                "caption": "Audit",
+                                "widgets": [
+                                    {
+                                        "widget_type": "DataTable",
+                                        "object_alias": "axenox.Deployer.build_advisory",
+                                        "filters": [
+                                            {
+                                                "attribute_alias": "build",
+                                                "hidden": true,
+                                                "required": true
+                                            }
+                                        ],
+                                        "columns": [
+                                            {
+                                                "attribute_alias": "advisory__public_id"
+                                            },
+                                            {
+                                                "attribute_alias": "advisory__level"
+                                            },
+                                            {
+                                                "attribute_alias": "advisory__name"
+                                            },
+                                            {
+                                                "attribute_alias": "advisory__package"
+                                            },
+                                            {
+                                                "attribute_alias": "advisory__type"
+                                            },
+                                            {
+                                                "attribute_alias": "version"
+                                            },
+                                            {
+                                                "attribute_alias": "advisory__version_fixed"
+                                            }
+                                        ],
+                                        "sorters": [
+                                            {
+                                                "attribute_alias": "advisory__level",
+                                                "direction": "desc"
+                                            },
+                                            {
+                                                "attribute_alias": "advisory__type",
+                                                "direction": "asc"
+                                            },
+                                            {
+                                                "attribute_alias": "advisory__package",
+                                                "direction": "asc"
+                                            }
+                                        ],
+                                        "buttons": [
+                                            {
+                                                "bind_to_double_click": true,
+                                                "action": {
+                                                    "alias": "exface.Core.ShowObjectInfoDialog",
+                                                    "object_alias": "axenox.Deployer.advisory",
+                                                    "disable_buttons": false,
+                                                    "input_mapper": {
+                                                        "from_object_alias": "axenox.Deployer.advisory_stats",
+                                                        "to_object_alias": "axenox.Deployer.advisory",
+                                                        "column_to_column_mappings": [
+                                                            {
+                                                                "from": "advisory",
+                                                                "to": "uid"
+                                                            }
+                                                        ]
+                                                    }
+                                                }
+                                            }
+                                        ]
                                     }
                                 ]
                             },
