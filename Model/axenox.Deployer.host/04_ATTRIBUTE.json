@@ -843,9 +843,9 @@
         {
             "_EXPORT_SUMMARY": "Status [status]",
             "CREATED_ON": "2026-10-14 09:47:20",
-            "MODIFIED_ON": "2026-10-14 10:14:39",
+            "MODIFIED_ON": "2026-10-29 16:41:05",
             "CREATED_BY_USER": "0x11ea4f31405af6f7bfc400505689aada",
-            "MODIFIED_BY_USER": "0x11ea4f31405af6f7bfc400505689aada",
+            "MODIFIED_BY_USER": "0x11ea11bb12970e55882500505689aada",
             "UID": "0x11f1abd57c81ba3eabd5005056be9857",
             "SORTABLEFLAG": 1,
             "FILTERABLEFLAG": 1,
@@ -893,7 +893,7 @@
             "UIDFLAG": 0,
             "HIDDENFLAG": 0,
             "EDITABLEFLAG": 0,
-            "REQUIREDFLAG": 0,
+            "REQUIREDFLAG": 1,
             "RELATED_OBJ": null,
             "SORTERPOS": null,
             "SORTERDIR": "",
@@ -910,7 +910,7 @@
             "CUSTOM_DATA_TYPE": {
                 "show_values": false,
                 "values": [
-                    "In Use",
+                    "Online",
                     "Decom. planned",
                     "Decommissioned"
                 ]
