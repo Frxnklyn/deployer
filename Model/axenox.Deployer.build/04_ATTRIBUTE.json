@@ -1044,6 +1044,73 @@
             "CUSTOM_DATA_TYPE": {
                 "length_max": 4294967295
             }
+        },
+        {
+            "_EXPORT_SUMMARY": "Deployment status [status_deplyoment]",
+            "CREATED_ON": "2026-10-29 15:38:58",
+            "MODIFIED_ON": "2026-10-29 16:14:06",
+            "CREATED_BY_USER": "0x11ea11bb12970e55882500505689aada",
+            "MODIFIED_BY_USER": "0x11ea11bb12970e55882500505689aada",
+            "UID": "0x11f19b9b799ce3ac9b9b005056be9857",
+            "SORTABLEFLAG": 1,
+            "FILTERABLEFLAG": 1,
+            "AGGREGATABLEFLAG": 1,
+            "DEFAULT_AGGREGATE_FUNCTION": "",
+            "VALUE_LIST_DELIMITER": ",",
+            "READABLEFLAG": 1,
+            "WRITABLEFLAG": 0,
+            "SYSTEMFLAG": 0,
+            "DEFAULT_EDITOR_UXON": null,
+            "COPY_WITH_RELATED_OBJECT": 0,
+            "DELETE_WITH_RELATED_OBJECT": 0,
+            "DEFAULT_DISPLAY_UXON": {
+                "widget_type": "ColorIndicator",
+                "fill": true,
+                "color_only": false,
+                "color_scale": {
+                    "ONLINE": "~OK",
+                    "OFFLINE": ""
+                }
+            },
+            "COMMENTS": "",
+            "NAME": "Deployment status",
+            "RELATION_CARDINALITY": "",
+            "TYPE": "D",
+            "COPYABLEFLAG": 0,
+            "ICON": "",
+            "ICON_SET": "",
+            "ABBREVIATION": "",
+            "ALIAS": "status_deplyoment",
+            "DATATYPE": "0x11e7c3960c3586c38001e4b318306b9a",
+            "DATA_ADDRESS": [
+                "// Multiline text delimited by `\n`",
+                "(CASE",
+                "  WHEN EXISTS (SELECT 1 FROM axxdep_currently_deployed WHERE build_oid = [#~alias#].oid) THEN 'ONLINE'",
+                "  ELSE 'OFFLINE'",
+                "END)"
+            ],
+            "OBJECT": "0x11e9f4d01e9108ebbacde4b318306b9a",
+            "FORMATTER": "",
+            "DISPLAYORDER": null,
+            "LABELFLAG": 0,
+            "UIDFLAG": 0,
+            "HIDDENFLAG": 0,
+            "EDITABLEFLAG": 0,
+            "REQUIREDFLAG": 1,
+            "RELATED_OBJ": null,
+            "SORTERPOS": null,
+            "SORTERDIR": "",
+            "RELATED_OBJ_ATTR": null,
+            "SHORT_DESCRIPTION": "",
+            "DATA_ADDRESS_PROPS": null,
+            "DEFAULT_VALUE": "",
+            "FIXED_VALUE": "",
+            "CUSTOM_DATA_TYPE": {
+                "values": {
+                    "OFFLINE": "Offline",
+                    "ONLINE": "Online"
+                }
+            }
         }
     ],
     "totals_rows": [],

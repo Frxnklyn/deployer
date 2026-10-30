@@ -11,94 +11,198 @@
     "created_by_user_selector": "0x11ea11bb12970e55882500505689aada",
     "created_on": "2026-10-10 01:08:59",
     "modified_by_user_selector": "0x11ea11bb12970e55882500505689aada",
-    "modified_on": "2026-10-16 09:02:55",
+    "modified_on": "2026-10-29 17:16:23",
     "contents": {
-        "widget_type": "DataTable",
+        "widget_type": "SplitHorizontal",
         "object_alias": "axenox.Deployer.advisory_stats",
-        "filters": [
+        "panels": [
             {
-                "attribute_alias": "advisory__build_advisory__build__project"
-            },
-            {
-                "attribute_alias": "stage"
-            },
-            {
-                "attribute_alias": "advisory__type"
-            },
-            {
-                "attribute_alias": "advisory__level"
-            }
-        ],
-        "columns": [
-            {
-                "attribute_alias": "advisory__public_id"
-            },
-            {
-                "attribute_alias": "advisory__level"
-            },
-            {
-                "attribute_alias": "advisory__name"
-            },
-            {
-                "attribute_alias": "advisory__package"
-            },
-            {
-                "attribute_alias": "advisory__type"
-            },
-            {
-                "attribute_alias": "stage__LABEL"
-            },
-            {
-                "attribute_alias": "count_hosts",
-                "caption": "On hosts",
-                "hint": "Number of hosts where affected versions are currently deployed"
-            },
-            {
-                "attribute_alias": "seen_first_on"
-            },
-            {
-                "attribute_alias": "seen_last_on"
-            },
-            {
-                "attribute_alias": "versions",
-                "caption": "Deployed versions"
-            },
-            {
-                "attribute_alias": "advisory__version_fixed"
-            }
-        ],
-        "sorters": [
-            {
-                "attribute_alias": "advisory__level",
-                "direction": "desc"
-            },
-            {
-                "attribute_alias": "advisory__package",
-                "direction": "asc"
-            },
-            {
-                "attribute_alias": "advisory__type",
-                "direction": "asc"
-            }
-        ],
-        "buttons": [
-            {
-                "bind_to_double_click": true,
-                "action": {
-                    "alias": "exface.Core.ShowObjectInfoDialog",
-                    "object_alias": "axenox.Deployer.advisory",
-                    "input_mapper": {
-                        "from_object_alias": "axenox.Deployer.advisory_stats",
-                        "to_object_alias": "axenox.Deployer.advisory",
-                        "column_to_column_mappings": [
+                "width": "30%",
+                "widgets": [
+                    {
+                        "widget_type": "SplitVertical",
+                        "panels": [
                             {
-                                "from": "advisory",
-                                "to": "uid"
+                                "height": "33%",
+                                "widgets": [
+                                    {
+                                        "widget_type": "Chart",
+                                        "object_alias": "axenox.Deployer.advisory_stats",
+                                        "caption": "Advisory severities of last 30 days",
+                                        "id": "severity_chart",
+                                        "data": {
+                                            "aggregate_by_attribute_alias": [
+                                                "advisory__level"
+                                            ],
+                                            "filters": [
+                                                {
+                                                    "attribute_alias": "seen_last_on",
+                                                    "comparator": ">=",
+                                                    "value": -14,
+                                                    "hidden": true
+                                                }
+                                            ]
+                                        },
+                                        "series": [
+                                            {
+                                                "type": "pie",
+                                                "value_attribute_alias": "advisory:COUNT_DISTINCT",
+                                                "text_attribute_alias": "advisory__level"
+                                            }
+                                        ]
+                                    }
+                                ]
+                            },
+                            {
+                                "widgets": [
+                                    {
+                                        "widget_type": "Chart",
+                                        "id": "days_chart",
+                                        "object_alias": "axenox.Deployer.build_advisory",
+                                        "caption": "Advisories of the last 30 days",
+                                        "data": {
+                                            "aggregate_by_attribute_alias": [
+                                                "build__started_on_date",
+                                                "advisory__level"
+                                            ],
+                                            "sorters": [
+                                                {
+                                                    "attribute_alias": "build__started_on_date",
+                                                    "direction": "asc"
+                                                },
+                                                {
+                                                    "attribute_alias": "advisory__level",
+                                                    "direction": "asc"
+                                                }
+                                            ],
+                                            "filters": [
+                                                {
+                                                    "attribute_alias": "build__started_on_date",
+                                                    "comparator": ">=",
+                                                    "value": -30,
+                                                    "hidden": true
+                                                }
+                                            ]
+                                        },
+                                        "series": [
+                                            {
+                                                "type": "column",
+                                                "split_by_attribute_alias": "advisory__level",
+                                                "stacked": true,
+                                                "y_attribute_alias": "advisory:COUNT_DISTINCT",
+                                                "x_attribute_alias": "build__started_on_date"
+                                            }
+                                        ],
+                                        "axis_x": [
+                                            {
+                                                "attribute_alias": "build__started_on_date",
+                                                "zoomable": false
+                                            }
+                                        ]
+                                    }
+                                ]
+                            },
+                            {
+                                "height": "33%"
                             }
                         ]
-                    },
-                    "disable_buttons": false
-                }
+                    }
+                ]
+            },
+            {
+                "widgets": [
+                    {
+                        "widget_type": "DataTable",
+                        "object_alias": "axenox.Deployer.advisory_stats",
+                        "filters": [
+                            {
+                                "attribute_alias": "advisory__build_advisory__build__project"
+                            },
+                            {
+                                "attribute_alias": "stage"
+                            },
+                            {
+                                "attribute_alias": "advisory__type"
+                            },
+                            {
+                                "attribute_alias": "advisory__level",
+                                "value": "=severity_chart!advisory__level"
+                            }
+                        ],
+                        "columns": [
+                            {
+                                "attribute_alias": "advisory__public_id"
+                            },
+                            {
+                                "attribute_alias": "advisory__level"
+                            },
+                            {
+                                "attribute_alias": "advisory__name"
+                            },
+                            {
+                                "attribute_alias": "advisory__package"
+                            },
+                            {
+                                "attribute_alias": "advisory__type"
+                            },
+                            {
+                                "attribute_alias": "stage__LABEL"
+                            },
+                            {
+                                "attribute_alias": "count_hosts",
+                                "caption": "On hosts",
+                                "hint": "Number of hosts where affected versions are currently deployed"
+                            },
+                            {
+                                "attribute_alias": "seen_first_on"
+                            },
+                            {
+                                "attribute_alias": "seen_last_on"
+                            },
+                            {
+                                "attribute_alias": "versions",
+                                "caption": "Deployed versions"
+                            },
+                            {
+                                "attribute_alias": "advisory__version_fixed"
+                            }
+                        ],
+                        "sorters": [
+                            {
+                                "attribute_alias": "advisory__level",
+                                "direction": "desc"
+                            },
+                            {
+                                "attribute_alias": "advisory__package",
+                                "direction": "asc"
+                            },
+                            {
+                                "attribute_alias": "advisory__type",
+                                "direction": "asc"
+                            }
+                        ],
+                        "buttons": [
+                            {
+                                "bind_to_double_click": true,
+                                "action": {
+                                    "alias": "exface.Core.ShowObjectInfoDialog",
+                                    "object_alias": "axenox.Deployer.advisory",
+                                    "input_mapper": {
+                                        "from_object_alias": "axenox.Deployer.advisory_stats",
+                                        "to_object_alias": "axenox.Deployer.advisory",
+                                        "column_to_column_mappings": [
+                                            {
+                                                "from": "advisory",
+                                                "to": "uid"
+                                            }
+                                        ]
+                                    },
+                                    "disable_buttons": false
+                                }
+                            }
+                        ]
+                    }
+                ]
             }
         ]
     }
