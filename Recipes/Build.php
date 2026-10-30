@@ -5,6 +5,9 @@ use Deployer\Exception\Exception;
 use exface\Core\DataTypes\StringDataType;
 use exface\Core\Facades\ConsoleFacade\CliCommandRunner;
 use Deployer\Exception\ConfigurationException;
+use axenox\Deployer\Actions\Build;
+use axenox\PackageManager\Common\LicenseBOM\Format\JsonBOM;
+use exface\Core\CommonLogic\Workbench;
 // use kabachello\ComposerAPI\ComposerAPI;
 
 /**
@@ -69,12 +72,10 @@ task('build:create_from_local', function() {
         mkdir($buildsPath);
     }
     runLocally('tar -czf "{{builds_archives_path}}\{{archiv_name}}" {{source_files}}');        
-    $licensePath = getcwd() . DIRECTORY_SEPARATOR . 'vendor' . DIRECTORY_SEPARATOR . 'licenses.json';
-    if (is_file($licensePath)) {
-        if (! copy($licensePath, $buildsPath . DIRECTORY_SEPARATOR . '..' . DIRECTORY_SEPARATOR . 'package_bom.json')) {
-            throw new Exception('Cannot stage the build package BOM.');
-        }
-    }
+    new Workbench();
+    (new JsonBOM(Build::buildRecipeBom(getcwd())))->saveToFile(
+        $buildsPath . DIRECTORY_SEPARATOR . '..' . DIRECTORY_SEPARATOR . 'package_bom.json'
+    );
 });
 
 /**
@@ -155,13 +156,10 @@ task('build:create_from_composer', function() {
     
     runLocally('cd "{{builds_archives_path}}" && tar -czf {{archiv_name}} -C "{{builds_archives_path}}/.." {{source_files}}', ['timeout' => $composer_timeout]);
 
-    // Stage the build package BOM if it exists
-    $licensePath = $buildsPath . DIRECTORY_SEPARATOR . '..' . DIRECTORY_SEPARATOR . 'vendor' . DIRECTORY_SEPARATOR . 'licenses.json';
-    if (is_file($licensePath)) {
-        if (! copy($licensePath, $buildsPath . DIRECTORY_SEPARATOR . '..' . DIRECTORY_SEPARATOR . 'package_bom.json')) {
-            throw new Exception('Cannot stage the build package BOM.');
-        }
-    }
+    new Workbench();
+    (new JsonBOM(Build::buildRecipeBom($buildsPath . DIRECTORY_SEPARATOR . '..')))->saveToFile(
+        $buildsPath . DIRECTORY_SEPARATOR . '..' . DIRECTORY_SEPARATOR . 'package_bom.json'
+    );
 
     if (substr(php_uname(), 0, 7) == "Windows"){
         runLocally('rmdir /s /q "{{builds_archives_path}}' . DIRECTORY_SEPARATOR . '..' . DIRECTORY_SEPARATOR . 'vendor"', ['timeout' => $composer_timeout]);

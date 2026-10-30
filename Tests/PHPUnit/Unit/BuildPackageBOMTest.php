@@ -29,9 +29,9 @@ class BuildPackageBOMTest extends TestCase
             $source = json_encode($data, JSON_THROW_ON_ERROR);
             file_put_contents($path, $source);
             self::assertSame(['packages' => [
-                ['name' => 'example/library', 'version' => 'v1.2.3', 'ecosystem' => 'composer'],
-                ['name' => '@scope/package', 'version' => '2.0.0', 'ecosystem' => 'npm'],
-                ['name' => 'example/unversioned', 'ecosystem' => 'composer']
+                ['name' => 'example/library', 'version' => 'v1.2.3', 'urn' => 'composer:example/library:v1.2.3', 'ecosystem' => 'composer'],
+                ['name' => '@scope/package', 'version' => '2.0.0', 'urn' => 'npm:@scope/package:2.0.0', 'ecosystem' => 'npm'],
+                ['name' => 'example/unversioned', 'urn' => 'composer:example/unversioned:', 'ecosystem' => 'composer']
             ]], json_decode($this->buildPackageBom($path), true, 512, JSON_THROW_ON_ERROR));
             self::assertSame($source, file_get_contents($path));
         } finally {
@@ -73,7 +73,7 @@ class BuildPackageBOMTest extends TestCase
             $source = json_encode($data, JSON_THROW_ON_ERROR);
             file_put_contents($path, $source);
             self::assertSame(['packages' => [[
-                'name' => 'library', 'version' => '1.0.0', 'ecosystem' => 'bower',
+                'name' => 'library', 'version' => '1.0.0', 'urn' => 'bower:library:1.0.0', 'ecosystem' => 'bower',
                 'source' => ['type' => 'git', 'reference' => $commit]
             ]]], json_decode($this->buildPackageBom($path), true, 512, JSON_THROW_ON_ERROR));
             self::assertSame($source, file_get_contents($path));

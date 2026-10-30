@@ -29,6 +29,8 @@ use exface\Core\Factories\TaskFactory;
 use axenox\PackageManager\Common\LicenseBOM\BOMPackage;
 use axenox\PackageManager\Common\LicenseBOM\Format\JsonBOM;
 use axenox\PackageManager\Common\LicenseBOM\LicenseBOM;
+use axenox\PackageManager\Common\LicenseBOM\ComposerBOM;
+use axenox\PackageManager\Common\LicenseBOM\IncludesBOM;
 use exface\Core\DataTypes\JsonDataType;
 
 /**
@@ -267,6 +269,39 @@ class Build extends AbstractActionDeferred implements iCanBeCalledFromCLI, iCrea
         }
 
         return $buildName;
+    }
+
+    /**
+     * Captures build dependencies before recipes remove the built vendor folder.
+     * 
+    * Reuses vendor/licenses.json when present, otherwise reads local manifests.
+     * License-text discovery and a configured or installed Workbench are not required.
+     * 
+     * @param string $projectPath
+     * @return LicenseBOM
+     */
+    public static function buildRecipeBom(string $projectPath) : LicenseBOM
+    {
+        $vendorPath = $projectPath . DIRECTORY_SEPARATOR . 'vendor';
+        $licensePath = $vendorPath . DIRECTORY_SEPARATOR . 'licenses.json';
+        if (is_file($licensePath)) {
+            return new IncludesBOM($licensePath, $vendorPath);
+        }
+        $bom = new LicenseBOM();
+        $bom->merge(new ComposerBOM($projectPath . DIRECTORY_SEPARATOR . 'composer.lock'));
+        $bundleUrns = [];
+        foreach ($bom->getPackages() as $package) {
+            $bundleUrns[$package->getName()] = $package->getUrn();
+        }
+        foreach (glob($vendorPath . '/*/*/includes.json') as $include) {
+            $bundleName = basename(dirname($include, 2)) . '/' . basename(dirname($include));
+            $bom->merge(new IncludesBOM($include, $vendorPath, $bundleUrns[$bundleName] ?? null));
+        }
+        $licensesPath = $projectPath . DIRECTORY_SEPARATOR . 'config' . DIRECTORY_SEPARATOR . 'Licenses.config.json';
+        if (is_file($licensesPath)) {
+            $bom->merge(new IncludesBOM($licensesPath, $vendorPath));
+        }
+        return $bom;
     }
 
     /**

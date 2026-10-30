@@ -29,10 +29,18 @@ the current installation instead.
 
 ## Package Snapshot
 
-The Composer recipe captures the built project's `vendor/licenses.json` before
-removing its temporary vendor folder. The local-clone recipe captures the local
-inventory included in its archive. Both recipes copy the original JSON unchanged
-to `package_bom.json` beside the project's `composer.lock`.
+The Composer recipe reuses the built project's `vendor/licenses.json` when present.
+Only when that file is absent does it generate the inventory from `composer.lock`,
+the packages' `includes.json` files and optional `config/Licenses.config.json` before
+removing its temporary vendor folder. The local-clone recipe uses the same precedence
+for the local installation included in its archive. Both recipes stage the inventory
+as `package_bom.json` beside the project's `composer.lock`. Existing inventories are
+read without modification; their presence bypasses manifest generation.
+
+Fallback generation does not depend on Composer installation hooks,
+database installation or remote license-text discovery. Previously, a missing generated
+license file silently left `package_bom` empty even when the build succeeded.
+Bundled dependencies retain the owning Composer package's locked URN.
 
 After the recipe finishes, the Build action reads the staged inventory and uses
 JsonBOM's `minimal` format for the database value:
@@ -45,8 +53,7 @@ Unversioned packages remain in the inventory without an invented version.
 
 Like `composer.lock`, the staged BOM is read and saved by Build, not by the recipe.
 Build saves the converted JSON in `package_bom` and removes the staged file during
-cleanup. Stale staged files are removed before the recipe starts. Older projects
-without a generated `vendor/licenses.json` retain lock-only auditing. Custom
+cleanup. Stale staged files are removed before the recipe starts. Custom
 recipes must copy their license inventory to `package_bom.json`; they do not need
 to reduce it to minimal JSON or access the database. Existing builds
 are not backfilled from the current installation.
