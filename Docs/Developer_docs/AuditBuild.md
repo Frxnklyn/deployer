@@ -44,9 +44,29 @@ Bundled dependencies retain the owning Composer package's locked URN.
 
 After the recipe finishes, the Build action reads the staged inventory and uses
 JsonBOM's `minimal` format for the database value:
-`{"packages":[{"name":"example/library","version":"v1.2.3","ecosystem":"composer"}]}`.
+```json
+{
+    "packages": [
+        {
+            "name": "example/library",
+            "version": "v1.2.3",
+            "ecosystem": "composer",
+            "urn": "composer:example/library:v1.2.3"
+        },
+        {
+            "name": "example-widget",
+            "version": "2.0.0",
+            "ecosystem": "npm",
+            "urn": "npm:example-widget:2.0.0",
+            "bundled_in": "composer:example/library:v1.2.3"
+        }
+    ]
+}
+```
 Ecosystems are lowercase and Composer asset aliases become native npm/Bower names;
-versions remain unchanged. Git sources also retain `source.type` and `source.reference`,
+versions remain unchanged. Multiple installed versions have separate URNs. Bundle ownership
+is retained as `bundled_in`, not inferred from a versionless supplement.
+Git sources also retain `source.type` and `source.reference`,
 allowing OSV to query locked commits from the BOM alone, including Bower packages.
 Repository URLs, license texts and other unrelated metadata are omitted.
 Unversioned packages remain in the inventory without an invented version.
@@ -65,7 +85,8 @@ action lifecycle with a fresh task containing only that build's saved artifacts.
 The package BOM is passed as Audit's `sbom` parameter. Its findings
 are saved through DataSheets as `axenox.Deployer.advisory` records. Their persisted
 UIDs are linked to the build using `build` and `advisory` on
-`axenox.Deployer.build_advisory`. Both writes share the action's transaction.
+`axenox.Deployer.build_advisory`, with one assignment per `bom_urn`.
+Both writes share the action's transaction.
 The returned DataSheet contains the persisted build-advisory links; the result
 message contains the summary. The action logbook contains each build's scanner
 status, hints and findings table, followed by the summary.
@@ -74,6 +95,9 @@ The advisory mapping preserves `level`, `name`, `type`, `package`, `ecosystem`, 
 `description`, `remediation`, `versions_affected`, `version_fixed` and `public_id`.
 Audit's deterministic `ID` is not used as a database UID. Each link's `version`
 stores the finding's `VERSION_INSTALLED`, including an empty value when unknown.
+Its required `bom_urn` stores `BOM_URN`: the normalized `ecosystem:package:version`
+identity, with an empty final segment for unknown versions. Version spelling and case
+are preserved, so unknown, known and case-distinct versions retain separate assignments.
 Installed versions are build-specific and are not copied to shared advisories.
 Scanner provenance is not persisted. A zero-finding audit creates no records. Scanner hints remain visible:
 zero findings alone do not prove that all scanners completed.
@@ -84,15 +108,37 @@ backfills existing advisories as Composer, the only previously supported ecosyst
 New findings retain their lowercase registry identity. OS packages and other
 unestablished registries explicitly use `unknown`, not an inferred Composer identity.
 
-There is no custom deduplication or deletion of previous findings. Repeated audits
-create new advisories and links until deduplication is configured in the model.
-A future `PreventDuplicatesBehavior` on advisories should use duplicate **update**
-handling so every submitted finding returns its existing or newly created UID.
-Its matching criteria must include `ecosystem` as well as `package` and advisory identity;
-package names are not unique across registries.
-Duplicate **ignore** handling that drops rows cannot supply all required links.
-Deduplicating build links can be configured separately on the build/advisory pair.
+Advisory uniqueness belongs to the advisory model's `PreventDuplicatesBehavior`.
+Its current comparison attributes are **name, package, ecosystem and type**. The action
+does not mirror that key, group findings by it or perform its own duplicate lookup.
+Change the model behavior's comparison attributes to change advisory uniqueness without
+changing AuditBuild. Any normalization needed for matching also belongs to that policy,
+not an additional lookup in the action. PackageManager's existing cross-source and
+title-based merging remains unchanged.
+
+Each finding is saved individually through a DataSheet. The duplicate behavior creates
+an advisory or updates a matching one with the supplied contents, returning its persisted
+UID in either case. Descriptions, remediation, severity, version ranges, fixes, public IDs
+and URLs are current advisory contents, not an accumulating historical record. When several
+processed findings match the same advisory, the last processed finding supplies its contents.
+A later audit can therefore replace descriptions or lower a previously reported severity.
+
+AuditBuild uses each returned advisory UID directly to save that finding's build link;
+there is no separate advisory-key-to-UID map. The link model's current duplicate **update**
+criteria are **build, advisory and bom_urn**. Links are also saved individually to avoid
+the framework batch matcher's case-insensitive comparison; the database's binary URN
+column distinguishes version case during repeat detection. The action returns each
+persisted link UID only once, without reimplementing the link model's uniqueness key.
+Duplicate handling must return UIDs, so use **update**, not **ignore**, for these models.
 Previously saved links remain even when a later scan no longer reports a finding.
+
+The migration backfills URNs from each existing link's stored version and related
+advisory package/ecosystem, normalizing asset aliases without inventing a version.
+It cannot recover versions already lost through earlier build/advisory-only duplicate
+updates. Re-audit the saved artifacts to restore those assignments. Archived BOMs
+are not reconstructed from the current installation. Public IDs and fixes use text
+columns to accommodate scanner results containing several values. Downgrading refuses
+to truncate these contents and preserves populated URNs as `trash_bom_urn`.
 
 ## Currently Deployed Advisories
 
@@ -133,8 +179,25 @@ php vendor/bin/phpunit -c vendor/axenox/deployer/phpunit.xml.dist --testsuite un
 
 Standalone installations use `php vendor/bin/phpunit -c phpunit.xml.dist`.
 Unit tests cover minimal package snapshots, prototype defaults, and model-aligned
-advisory and installed-version link mappings without a database or mocked Workbench.
-Application-level validation requires a persisted
-metamodel and backing tables: select multiple builds, audit them, verify each
-advisory link, then repeat with the desired duplicate behavior. Also check empty
-locks, clean scans, scanner failure and transaction rollback in that environment.
+advisory and per-URN link mappings without a database or mocked Workbench.
+
+The opt-in integration checks require an installed Deployer model, writable MySQL
+tables and at least one existing build. From the containing installation, in PowerShell:
+
+```powershell
+$env:EXFACE_DEPLOYER_PERSISTENCE_TEST = '1'
+php vendor/bin/phpunit -c vendor/axenox/deployer/phpunit.xml.dist --testsuite integration --filter AuditBuildPersistenceTest
+Remove-Item Env:EXFACE_DEPLOYER_PERSISTENCE_TEST
+```
+
+The persistence check uses randomized advisory names, never changes the selected
+build and rolls back all fixture writes. It checks multiple versions, unknown versions,
+case-distinct versions, separate ecosystems, replacement contents and stable UIDs on repeat
+audits. It also changes the advisory behavior's comparison attributes in memory to verify
+that the same action follows a different uniqueness policy without persisting that model
+change. The migration check creates and removes randomly named isolated fixture tables;
+its database account needs DDL permission. Each test runs in a separate process to isolate
+Workbench global state. No scanners are called by these checks.
+
+Full application validation still requires selecting multiple builds and auditing their
+saved artifacts, including clean scans, scanner failures and action transaction rollback.

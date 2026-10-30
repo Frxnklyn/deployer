@@ -11,6 +11,7 @@ use exface\Core\Factories\DataSheetFactory;
 use exface\Core\Factories\ResultFactory;
 use exface\Core\Factories\TaskFactory;
 use exface\Core\Interfaces\Actions\iCreateData;
+use exface\Core\Interfaces\DataSheets\DataSheetInterface;
 use exface\Core\Interfaces\DataSources\DataTransactionInterface;
 use exface\Core\Interfaces\Tasks\ResultDataInterface;
 use exface\Core\Interfaces\Tasks\ResultInterface;
@@ -33,8 +34,9 @@ use exface\Core\Interfaces\Tasks\TaskInterface;
  * Multiple scanners can still check the same package, which will be visible in the sources of
  * the created advisories. 
  * 
- * This action does not implement deduplication. It relies on `PreventDuplicatesBehavior`
- * on the destination objects.
+ * Destination duplicate behaviors determine advisory and assignment uniqueness. Matching advisories
+ * are updated with the current finding contents; the action does not merge historical contents
+ * or define its own uniqueness key. Each finding is linked using its persisted advisory UID.
  * 
  * See [technical documentation](../Docs/Developer_docs/AuditBuild.md) for more details.
  */
@@ -86,7 +88,7 @@ class AuditBuild extends AbstractAction implements iCreateData
         // Keep the nested audit and all persistence within the supplied transaction.
         $auditSheet = ActionFactory::createFromString($this->getWorkbench(), Audit::class);
         $buildAdvisorySheet = DataSheetFactory::createFromObjectIdOrAlias($this->getWorkbench(), 'axenox.Deployer.build_advisory');
-        $buildAdvisorySheet->getColumns()->addMultiple(['build', 'advisory', 'version']);
+        $buildAdvisorySheet->getColumns()->addMultiple(['build', 'advisory', 'version', 'bom_urn']);
         foreach ($buildsSheet->getRows() as $buildRow) {
             $composerLock = $buildRow['composer_lock'] ?? '';
             $packageBom = $buildRow['package_bom'] ?? '';
@@ -117,27 +119,7 @@ class AuditBuild extends AbstractAction implements iCreateData
                 continue;
             }
 
-            // Save model-supported finding fields and obtain the persisted advisory UIDs.
-            $advisoriesSheet = DataSheetFactory::createFromObjectIdOrAlias($this->getWorkbench(), 'axenox.Deployer.advisory');
-            $advisoriesSheet->getColumns()->addMultiple(self::ADVISORY_COLUMNS);
-            foreach ($findings as $finding) {
-                $advisoriesSheet->addRow($this->mapAdvisoryRow($finding));
-            }
-            $advisoriesSheet->dataCreate(false, $transaction);
-            $advisoryUidsCol = $advisoriesSheet->getUidColumn();
-            if ($advisoryUidsCol === null || $advisoriesSheet->countRows() !== count($findings)) {
-                throw new ActionRuntimeError($this, 'Created advisories must return one UID for each finding.');
-            }
-            // Link each persisted advisory to its build and collect the saved links.
-            $buildLinks = $buildAdvisorySheet->copy();
-            $buildLinks->removeRows();
-            foreach ($advisoryUidsCol->getValues() as $findingIndex => $advisoryUid) {
-                if ($advisoryUid === null || $advisoryUid === '') {
-                    throw new ActionRuntimeError($this, 'Cannot link an advisory without its persisted UID.');
-                }
-                $buildLinks->addRow($this->mapBuildAdvisoryRow($buildRow[$buildUidColName], $advisoryUid, $findings[$findingIndex]));
-            }
-            $buildLinks->dataCreate(false, $transaction);
+            $buildLinks = $this->saveFindings($buildRow[$buildUidColName], $findings, $transaction);
             $buildAdvisorySheet->addRows($buildLinks->getRows());
             $logbook->addIndent(-1);
         }
@@ -152,7 +134,7 @@ class AuditBuild extends AbstractAction implements iCreateData
      * Maps scanner evidence to the attributes owned by the advisory model.
      * 
      * Audit's deterministic ID is not a database UID. Scanner provenance and
-        * installed versions do not belong to shared advisory records.
+     * installed versions do not belong to shared advisory records.
      * 
      * @param array<string, string> $finding
      * @return array<string, string>
@@ -175,6 +157,57 @@ class AuditBuild extends AbstractAction implements iCreateData
     }
 
     /**
+     * Saves findings and their build assignments using model-owned duplicate handling.
+     * 
+     * Each finding is saved separately so its returned advisory UID can be used directly, regardless
+     * of which attributes the model compares. Matching advisories receive replacement contents.
+     * Assignments are also saved separately to preserve case-distinct version URNs; repeated
+     * assignments appear only once in the result, identified by their persisted UID.
+     * 
+     * @param string $buildUid
+     * @param array<array<string, string|int>> $findings
+     * @param DataTransactionInterface $transaction
+     * @return DataSheetInterface
+     */
+    protected function saveFindings(string $buildUid, array $findings, DataTransactionInterface $transaction) : DataSheetInterface
+    {
+        $advisories = DataSheetFactory::createFromObjectIdOrAlias($this->getWorkbench(), 'axenox.Deployer.advisory');
+        $advisories->getColumns()->addMultiple(self::ADVISORY_COLUMNS);
+        $links = DataSheetFactory::createFromObjectIdOrAlias($this->getWorkbench(), 'axenox.Deployer.build_advisory');
+        $links->getColumns()->addMultiple(['build', 'advisory', 'version', 'bom_urn']);
+        $rows = [];
+        foreach ($findings as $finding) {
+            // Let the model create or update this advisory. A single-row save returns its UID
+            // without grouping findings by a second, action-owned definition of uniqueness.
+            $advisory = $advisories->copy();
+            $advisory->addRow($this->mapAdvisoryRow($finding));
+            $advisory->dataCreate(false, $transaction);
+            $uidColumn = $advisory->getUidColumn();
+            $advisoryUid = $uidColumn !== null ? $uidColumn->getValue(0) : null;
+            if ($advisoryUid === null || $advisoryUid === '') {
+                throw new ActionRuntimeError($this, 'Cannot link an advisory without its persisted UID.');
+            }
+
+            // Single-row writes avoid the batch matcher's case folding of version URNs.
+            // Assignment uniqueness, like advisory uniqueness, remains owned by the model.
+            $assignment = $links->copy();
+            $assignment->addRow($this->mapBuildAdvisoryRow($buildUid, $advisoryUid, $finding));
+            $assignment->dataCreate(false, $transaction);
+            $uidColumn = $assignment->getUidColumn();
+            $assignmentUid = $uidColumn !== null ? $uidColumn->getValue(0) : null;
+            if ($assignmentUid === null || $assignmentUid === '') {
+                throw new ActionRuntimeError($this, 'Cannot return an advisory assignment without its persisted UID.');
+            }
+
+            // Duplicate updates can return the same assignment repeatedly. Only collapse rows
+            // with the same persisted UID, without assuming which attributes identify them.
+            $rows[$assignmentUid] = $assignment->getRow(0);
+        }
+        $links->addRows(array_values($rows));
+        return $links;
+    }
+
+    /**
      * Keeps installed-version evidence on the build-specific advisory assignment.
      * 
      * Shared advisories can affect builds containing different package releases.
@@ -189,7 +222,8 @@ class AuditBuild extends AbstractAction implements iCreateData
         return [
             'build' => $buildUid,
             'advisory' => $advisoryUid,
-            'version' => $finding['VERSION_INSTALLED']
+            'version' => $finding['VERSION_INSTALLED'],
+            'bom_urn' => $finding['BOM_URN']
         ];
     }
 

@@ -237,10 +237,17 @@
                                                 "attribute_alias": "advisory__package"
                                             },
                                             {
+                                                "attribute_alias": "advisory__ecosystem"
+                                            },
+                                            {
                                                 "attribute_alias": "advisory__type"
                                             },
                                             {
                                                 "attribute_alias": "version"
+                                            },
+                                            {
+                                                "attribute_alias": "bom_urn",
+                                                "hidden": true
                                             },
                                             {
                                                 "attribute_alias": "advisory__version_fixed"

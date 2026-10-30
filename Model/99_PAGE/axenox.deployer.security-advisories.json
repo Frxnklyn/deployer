@@ -143,6 +143,9 @@
                                 "attribute_alias": "advisory__package"
                             },
                             {
+                                "attribute_alias": "advisory__ecosystem"
+                            },
+                            {
                                 "attribute_alias": "advisory__type"
                             },
                             {

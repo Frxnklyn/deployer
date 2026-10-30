@@ -119,8 +119,12 @@ class AuditBuildTest extends TestCase
             self::assertSame([
                 'build' => 'build-uid',
                 'advisory' => 'advisory-uid',
-                'version' => $version
-            ], $method->invoke($action, 'build-uid', 'advisory-uid', ['VERSION_INSTALLED' => $version]));
+                'version' => $version,
+                'bom_urn' => 'npm:example-package:' . $version
+            ], $method->invoke($action, 'build-uid', 'advisory-uid', [
+                'VERSION_INSTALLED' => $version, 'BOM_URN' => 'npm:example-package:' . $version
+            ]));
         }
     }
+
 }

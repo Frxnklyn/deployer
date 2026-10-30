@@ -61,7 +61,7 @@
     ],
     "rows": [
         {
-            "_EXPORT_SUMMARY": "Each advisory only once per build",
+            "_EXPORT_SUMMARY": "Each advisory only once per build and BOM URN",
             "CREATED_ON": "2026-10-09 22:16:51",
             "MODIFIED_ON": "2026-10-12 11:18:06",
             "CREATED_BY_USER": "0x11ea11bb12970e55882500505689aada",
@@ -71,15 +71,16 @@
             "CONFIG_UXON": {
                 "compare_attributes": [
                     "advisory",
-                    "build"
+                    "build",
+                    "bom_urn"
                 ],
                 "on_duplicate_single_row": "update",
                 "on_duplicate_multi_row": "update"
             },
             "OBJECT": "0x11f1b4f693e757b2b4f6025041000001",
             "APP": "0x11e9e072016ba0dd8afae4b318306b9a",
-            "NAME": "Each advisory only once per build",
-            "DESCRIPTION": "Duplicates lead to an update, so multiple scans will update the modified_on showing when a build-advisory was first and last seen",
+            "NAME": "Each advisory only once per build and BOM URN",
+            "DESCRIPTION": "Each affected package URN retains a separate assignment. Repeat scans update that assignment's last-seen timestamp without replacing other installed versions.",
             "DISABLED_FLAG": 0,
             "PRIORITY": null
         }

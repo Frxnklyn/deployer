@@ -481,7 +481,7 @@
             "DEFAULT_VALUE": "",
             "FIXED_VALUE": "",
             "CUSTOM_DATA_TYPE": {
-                "length_max": 100
+                "length_max": 65535
             }
         },
         {
@@ -531,7 +531,7 @@
             "DEFAULT_VALUE": "",
             "FIXED_VALUE": "",
             "CUSTOM_DATA_TYPE": {
-                "length_max": 50
+                "length_max": 65535
             }
         },
         {
