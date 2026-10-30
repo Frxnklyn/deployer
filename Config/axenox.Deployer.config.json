@@ -2,5 +2,28 @@
 	"PROJECTS_FOLDER_RELATIVE_TO_BASE": "data/deployer",
 	"PHP_VERSION_PATHS": {},
 	"OTA_DOWNLOAD_MAX_EXECUTION_TIME": 1200,
-	"COMPOSER.AUTH": {}
+	"COMPOSER.AUTH": {},
+	"BUILD.AUDIT.SCANNERS": {
+		"license": {
+			"class": "\\axenox\\PackageManager\\Common\\Audit\\Scanner\\LicenseScanner"
+		},
+		"composer": {
+			"class": "\\axenox\\PackageManager\\Common\\Audit\\Scanner\\ComposerAuditScanner"
+		},
+		"npm": {
+			"class": "\\axenox\\PackageManager\\Common\\Audit\\Scanner\\ComposerNpmAuditScanner"
+		},
+		"osv": {
+			"class": "\\axenox\\PackageManager\\Common\\Audit\\Scanner\\OsvAuditScanner"
+		},
+		"trivy": {
+			"class": "\\axenox\\PackageManager\\Common\\Audit\\Scanner\\TrivySBOMScanner"
+		},
+		"packagist_outdated": {
+			"class": "\\axenox\\PackageManager\\Common\\Audit\\Scanner\\PackagistOutdatedScanner"
+		},
+		"npm_outdated": {
+			"class": "\\axenox\\PackageManager\\Common\\Audit\\Scanner\\NpmOutdatedScanner"
+		}
+	}
 }

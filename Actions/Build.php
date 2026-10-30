@@ -252,7 +252,9 @@ class Build extends AbstractActionDeferred implements iCanBeCalledFromCLI, iCrea
             $log .= $msg;
 
             try {
+                /** @var AuditBuild $auditAction */
                 $auditAction = ActionFactory::createFromString($this->getWorkbench(), AuditBuild::class);
+                $auditAction->setScanners($this->getApp()->getConfig()->getOption('BUILD.AUDIT.SCANNERS'));
                 $auditTask = TaskFactory::createFromDataSheet($buildData->copy());
                 $auditTask->setActionSelector($auditAction->getAliasWithNamespace());
                 $auditResult = $auditAction->handle($auditTask);

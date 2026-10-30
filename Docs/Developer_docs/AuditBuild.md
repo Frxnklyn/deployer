@@ -11,6 +11,26 @@ are not audited. The audit uses its own action transaction and normal authorizat
 Its summary or error is streamed to the caller and appended to the build log.
 Audit errors are also recorded in the workbench log; the build remains successful.
 
+## Scanner Configuration
+
+Deployer defines two independent scanner maps in `Config/axenox.Deployer.config.json`:
+
+- `AUDIT_BUILD.SCANNERS`: used by standalone `AuditBuild` calls, including regular background scans.
+- `BUILD.AUDIT.SCANNERS`: passed by `Build` to its audit immediately after a successful build.
+
+Both maps include license, Composer advisory, npm advisory, OSV and Trivy scanners by default.
+Only the post-build map additionally includes `PackagistOutdatedScanner` and
+`NpmOutdatedScanner`. These report packages behind the latest registry release even though
+the build just fetched its dependencies. Regular scans omit these checks because missing
+updates are expected for existing installations and saved builds.
+
+Each map uses PackageManager's named scanner configuration format: an entry contains
+`class` plus any scanner-specific options. These maps replace, rather than extend,
+PackageManager's `AUDIT.SCANNERS`; changes to that option do not affect Deployer scans.
+An explicit `scanners` property on `AuditBuild` replaces `AUDIT_BUILD.SCANNERS` for that
+action instance. An empty map disables all scanners. Customize either Deployer map
+through the installation's Deployer configuration overrides.
+
 For example, add this button to a build table:
 
 ```json

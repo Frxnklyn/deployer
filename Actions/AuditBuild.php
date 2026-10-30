@@ -5,6 +5,7 @@ use axenox\PackageManager\Actions\Audit;
 use axenox\PackageManager\DataTypes\PackageEcosystemDataType;
 use exface\Core\CommonLogic\AbstractAction;
 use exface\Core\CommonLogic\DataSheets\DataCollector;
+use exface\Core\CommonLogic\UxonObject;
 use exface\Core\Exceptions\Actions\ActionRuntimeError;
 use exface\Core\Factories\ActionFactory;
 use exface\Core\Factories\DataSheetFactory;
@@ -47,6 +48,40 @@ class AuditBuild extends AbstractAction implements iCreateData
         'remediation', 'versions_affected', 'version_fixed', 'public_id'
     ];
 
+    private $scannersUxon = null;
+
+    /**
+    * Configure named scanners instead of the default package audit scanners.
+     * 
+     * Each entry requires a class and may include scanner-specific options.
+    * The map replaces AUDIT_BUILD.SCANNERS and PackageManager's fallback entirely;
+    * an empty map disables scanning. Without an override, PackageManager's
+    * AUDIT.SCANNERS applies when AUDIT_BUILD.SCANNERS is null.
+     * Build supplies its separate BUILD.AUDIT.SCANNERS map for post-build audits.
+     * 
+     * @uxon-property scanners
+     * @uxon-type object
+     * @uxon-template {"composer": {"class": "\\axenox\\PackageManager\\Common\\Audit\\Scanner\\ComposerAuditScanner"}}
+     * 
+     * @param UxonObject|array<string,array<string,mixed>> $uxonOrArray
+     * @return AuditBuild
+     */
+    public function setScanners($uxonOrArray) : AuditBuild
+    {
+        $this->scannersUxon = $uxonOrArray instanceof UxonObject ? $uxonOrArray->copy() : new UxonObject($uxonOrArray);
+        return $this;
+    }
+
+    /**
+    * Inherits new PackageManager scanners unless Deployer or this action overrides them.
+     * 
+     * @return UxonObject
+     */
+    protected function getScannersUxon() : ?UxonObject
+    {
+        return $this->scannersUxon;
+    }
+
     /**
      * {@inheritDoc}
      * 
@@ -86,7 +121,11 @@ class AuditBuild extends AbstractAction implements iCreateData
         $buildUidColName = $buildsSheet->getUidColumnName();
 
         // Keep the nested audit and all persistence within the supplied transaction.
+        /** @var Audit $auditSheet */
         $auditSheet = ActionFactory::createFromString($this->getWorkbench(), Audit::class);
+        if ($scanners = $this->getScannersUxon()) {
+            $auditSheet->setScanners($scanners);
+        }
         $buildAdvisorySheet = DataSheetFactory::createFromObjectIdOrAlias($this->getWorkbench(), 'axenox.Deployer.build_advisory');
         $buildAdvisorySheet->getColumns()->addMultiple(['build', 'advisory', 'version', 'bom_urn']);
         foreach ($buildsSheet->getRows() as $buildRow) {
