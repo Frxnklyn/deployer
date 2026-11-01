@@ -2,6 +2,7 @@
 namespace axenox\Deployer\Tests\PHPUnit\Unit;
 
 use axenox\Deployer\Actions\Build;
+use axenox\PackageManager\Interfaces\BOMPackageInterface;
 use exface\Core\CommonLogic\Workbench;
 use exface\Core\Exceptions\InvalidArgumentException;
 use exface\Core\Factories\ActionFactory;
@@ -13,7 +14,7 @@ use PHPUnit\Framework\TestCase;
 class BuildPackageBOMTest extends TestCase
 {
     /**
-    * Build snapshots retain scanner identities but exclude license and unrelated source metadata.
+        * Build snapshots retain scanner identities and license evidence without terms or unrelated metadata.
      * 
      * @return void
      */
@@ -29,9 +30,12 @@ class BuildPackageBOMTest extends TestCase
             $source = json_encode($data, JSON_THROW_ON_ERROR);
             file_put_contents($path, $source);
             self::assertSame(['packages' => [
-                ['name' => 'example/library', 'version' => 'v1.2.3', 'urn' => 'composer:example/library:v1.2.3', 'ecosystem' => 'composer'],
-                ['name' => '@scope/package', 'version' => '2.0.0', 'urn' => 'npm:@scope/package:2.0.0', 'ecosystem' => 'npm'],
-                ['name' => 'example/unversioned', 'urn' => 'composer:example/unversioned:', 'ecosystem' => 'composer']
+                ['name' => 'example/library', 'version' => 'v1.2.3', 'urn' => 'composer:example/library:v1.2.3',
+                    'ecosystem' => 'composer', 'license_text_source' => ['Other' => BOMPackageInterface::LICENSE_TEXT_SOURCE_MISSING]],
+                ['name' => '@scope/package', 'version' => '2.0.0', 'urn' => 'npm:@scope/package:2.0.0',
+                    'ecosystem' => 'npm', 'license_text_source' => ['Other' => BOMPackageInterface::LICENSE_TEXT_SOURCE_MISSING]],
+                ['name' => 'example/unversioned', 'license' => ['MIT'], 'urn' => 'composer:example/unversioned:',
+                    'ecosystem' => 'composer', 'license_used' => 'MIT', 'license_text_source' => ['MIT' => BOMPackageInterface::LICENSE_TEXT_SOURCE_MISSING]]
             ]], json_decode($this->buildPackageBom($path), true, 512, JSON_THROW_ON_ERROR));
             self::assertSame($source, file_get_contents($path));
         } finally {
@@ -74,6 +78,7 @@ class BuildPackageBOMTest extends TestCase
             file_put_contents($path, $source);
             self::assertSame(['packages' => [[
                 'name' => 'library', 'version' => '1.0.0', 'urn' => 'bower:library:1.0.0', 'ecosystem' => 'bower',
+                'license_text_source' => ['Other' => BOMPackageInterface::LICENSE_TEXT_SOURCE_MISSING],
                 'source' => ['type' => 'git', 'reference' => $commit]
             ]]], json_decode($this->buildPackageBom($path), true, 512, JSON_THROW_ON_ERROR));
             self::assertSame($source, file_get_contents($path));
