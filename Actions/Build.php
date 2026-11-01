@@ -31,6 +31,9 @@ use axenox\PackageManager\Common\LicenseBOM\Format\JsonBOM;
 use axenox\PackageManager\Common\LicenseBOM\LicenseBOM;
 use axenox\PackageManager\Common\LicenseBOM\ComposerBOM;
 use axenox\PackageManager\Common\LicenseBOM\IncludesBOM;
+use axenox\PackageManager\Common\LicenseBOM\Enricher\FindLicensePackageJsonEnricher;
+use axenox\PackageManager\Common\LicenseBOM\Enricher\FindLicenseTextEnricher;
+use axenox\PackageManager\Common\LicenseBOM\Enricher\FindLicenseFileEnricher;
 use exface\Core\DataTypes\JsonDataType;
 
 /**
@@ -276,8 +279,9 @@ class Build extends AbstractActionDeferred implements iCanBeCalledFromCLI, iCrea
     /**
      * Captures build dependencies before recipes remove the built vendor folder.
      * 
-    * Reuses vendor/licenses.json when present, otherwise reads local manifests.
-     * License-text discovery and a configured or installed Workbench are not required.
+        * Reuses vendor/licenses.json when present, otherwise reads local manifests and license files.
+        * Declarations are recovered before terms so text is indexed by the effective license.
+        * No remote queries or configured installation Workbench are required.
      * 
      * @param string $projectPath
      * @return LicenseBOM
@@ -303,6 +307,15 @@ class Build extends AbstractActionDeferred implements iCanBeCalledFromCLI, iCrea
         if (is_file($licensesPath)) {
             $bom->merge(new IncludesBOM($licensesPath, $vendorPath));
         }
+        $manifestEnricher = new FindLicensePackageJsonEnricher($vendorPath);
+        foreach ($bom->getPackages() as $package) {
+            $bom->addPackage($manifestEnricher->enrich($package));
+        }
+        $bom->addEnricher(new FindLicenseTextEnricher($vendorPath));
+        $bom->addEnricher(new FindLicenseFileEnricher($vendorPath));
+        foreach ($bom->getPackages() as $package) {
+            $bom->addPackage($package);
+        }
         return $bom;
     }
 
@@ -327,6 +340,7 @@ class Build extends AbstractActionDeferred implements iCanBeCalledFromCLI, iCrea
             throw new InvalidArgumentException('Build package BOM must contain a packages array.');
         }
         $bom = new LicenseBOM();
+        $bom->setLicenses($data['licenses'] ?? []);
         foreach ($data['packages'] as $package) {
             if (! is_array($package) || ! is_string($package['name'] ?? null) || $package['name'] === '') {
                 throw new InvalidArgumentException('Build package BOM packages must have a nonempty name.');

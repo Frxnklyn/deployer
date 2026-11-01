@@ -14,6 +14,31 @@ use PHPUnit\Framework\TestCase;
 class BuildPackageBOMTest extends TestCase
 {
     /**
+     * Compaction must resolve shared terms rather than discard evidence outside package rows.
+     * 
+     * @return void
+     */
+    public function testSharedDefinitionsSurviveAsSourceEvidence() : void
+    {
+        $source = json_encode([
+            'packages' => [['name' => 'example/library', 'version' => '1.0.0', 'license_used' => 'Client-License']],
+            'licenses' => ['Client-License' => ['license_text' => 'Shared installation terms']]
+        ], JSON_THROW_ON_ERROR);
+        $path = tempnam(sys_get_temp_dir(), 'build-shared-license-');
+        try {
+            file_put_contents($path, $source);
+            $snapshot = json_decode($this->buildPackageBom($path), true, 512, JSON_THROW_ON_ERROR);
+            self::assertSame(['Client-License'], $snapshot['packages'][0]['license']);
+            self::assertSame(['Client-License' => BOMPackageInterface::LICENSE_TEXT_SOURCE_EMBEDDED], $snapshot['packages'][0]['license_text_source']);
+            self::assertArrayNotHasKey('licenses', $snapshot);
+            self::assertArrayNotHasKey('license_text', $snapshot['packages'][0]);
+            self::assertSame($source, file_get_contents($path));
+        } finally {
+            unlink($path);
+        }
+    }
+
+    /**
         * Build snapshots retain scanner identities and license evidence without terms or unrelated metadata.
      * 
      * @return void

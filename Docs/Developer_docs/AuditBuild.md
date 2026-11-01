@@ -58,7 +58,13 @@ as `package_bom.json` beside the project's `composer.lock`. Existing inventories
 read without modification; their presence bypasses manifest generation.
 
 Fallback generation does not depend on Composer installation hooks,
-database installation or remote license-text discovery. Previously, a missing generated
+database installation or remote license-text discovery. It recovers missing declarations
+from installed `package.json` manifests, then reads local license files before vendor cleanup.
+Native npm/Bower names are also checked under Asset Packagist installation paths. Bundled
+packages without a standalone directory remain in the inventory without filesystem warnings.
+Previously, the fallback collected declarations but did not discover installed terms, causing
+most packages to be marked as missing text even when their license files were present.
+Also, a missing generated
 license file silently left `package_bom` empty even when the build succeeded.
 Bundled dependencies retain the owning Composer package's locked URN.
 
@@ -71,14 +77,20 @@ JsonBOM's `minimal` format for the database value:
             "name": "example/library",
             "version": "v1.2.3",
             "ecosystem": "composer",
-            "urn": "composer:example/library:v1.2.3"
+            "urn": "composer:example/library:v1.2.3",
+            "license": ["MIT"],
+            "license_used": "MIT",
+            "license_text_source": {"MIT": "embedded"}
         },
         {
             "name": "example-widget",
             "version": "2.0.0",
             "ecosystem": "npm",
             "urn": "npm:example-widget:2.0.0",
-            "bundled_in": "composer:example/library:v1.2.3"
+            "bundled_in": "composer:example/library:v1.2.3",
+            "license": ["MIT"],
+            "license_used": "MIT",
+            "license_text_source": {"MIT": "missing"}
         }
     ]
 }
@@ -89,6 +101,11 @@ is retained as `bundled_in`, not inferred from a versionless supplement.
 Git sources also retain `source.type` and `source.reference`,
 allowing OSV to query locked commits from the BOM alone, including Bower packages.
 Repository URLs, license texts and other unrelated metadata are omitted.
+License declarations and effective selections are retained. `license_text_source` uses
+the constants `embedded`, `local`, `link` and `missing` described in
+[PackageManager's JSON format reference](../../../packagemanager/Docs/License_management/Generated_license_BOM.md#json-export-format).
+Shared definitions in the staged full inventory are resolved before compaction; their
+source evidence survives, but their license text is not stored in the compact value.
 Unversioned packages remain in the inventory without an invented version.
 
 Like `composer.lock`, the staged BOM is read and saved by Build, not by the recipe.

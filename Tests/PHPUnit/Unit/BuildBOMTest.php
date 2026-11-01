@@ -13,6 +13,56 @@ use PHPUnit\Framework\TestCase;
 class BuildBOMTest extends TestCase
 {
     /**
+     * Fallback snapshots need installed terms and recovered declarations before vendor cleanup.
+     * 
+     * @return void
+     */
+    public function testFallbackDiscoversLocalTermsAndAssetManifestLicenses() : void
+    {
+        $projectPath = sys_get_temp_dir() . DIRECTORY_SEPARATOR . uniqid('build-license-', true);
+        $composerPath = $projectPath . '/vendor/example/library';
+        $assetPath = $projectPath . '/vendor/bower-asset/example';
+        mkdir($composerPath, 0777, true);
+        mkdir($assetPath, 0777, true);
+        try {
+            file_put_contents($projectPath . '/composer.lock', json_encode(['packages' => [
+                ['name' => 'example/library', 'version' => '1.0.0', 'license' => ['MIT'], 'license_text' => ['MIT' => '']],
+                ['name' => 'bower-asset/example', 'version' => '2.0.0']
+            ]], JSON_THROW_ON_ERROR));
+            file_put_contents($composerPath . '/LICENSE', 'Installed composer terms');
+            file_put_contents($assetPath . '/package.json', '{"license":"MIT"}');
+            file_put_contents($assetPath . '/LICENSE.md', 'Installed asset terms');
+            file_put_contents($composerPath . '/includes.json', json_encode([
+                ['name' => 'not-installed', 'ecosystem' => 'npm', 'version' => '3.0.0', 'license' => ['MIT']],
+                ['name' => 'example', 'ecosystem' => 'bower']
+            ], JSON_THROW_ON_ERROR));
+
+            ActionFactory::createFromString(new Workbench(), Build::class);
+            $bom = Build::buildRecipeBom($projectPath);
+            $snapshot = json_decode((new JsonBOM($bom))->setFormat('minimal')->buildJson(), true, 512, JSON_THROW_ON_ERROR);
+            $packages = array_column($snapshot['packages'], null, 'name');
+            self::assertSame(['MIT' => 'embedded'], $packages['example/library']['license_text_source']);
+            self::assertSame(['MIT'], $packages['example']['license']);
+            self::assertSame(['MIT' => 'embedded'], $packages['example']['license_text_source']);
+            self::assertSame(['MIT' => 'missing'], $packages['not-installed']['license_text_source']);
+            self::assertArrayNotHasKey('license_text', $packages['example/library']);
+            self::assertFileDoesNotExist($projectPath . '/vendor/licenses.json');
+        } finally {
+            unlink($projectPath . '/composer.lock');
+            unlink($composerPath . '/LICENSE');
+            unlink($composerPath . '/includes.json');
+            unlink($assetPath . '/package.json');
+            unlink($assetPath . '/LICENSE.md');
+            rmdir($composerPath);
+            rmdir($assetPath);
+            rmdir(dirname($composerPath));
+            rmdir(dirname($assetPath));
+            rmdir($projectPath . '/vendor');
+            rmdir($projectPath);
+        }
+    }
+
+    /**
      * Build snapshots must include bundled dependencies without running installation hooks.
      * 
      * @return void
