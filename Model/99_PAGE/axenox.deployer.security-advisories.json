@@ -11,7 +11,7 @@
     "created_by_user_selector": "0x11ea11bb12970e55882500505689aada",
     "created_on": "2026-10-10 01:08:59",
     "modified_by_user_selector": "0x11ea11bb12970e55882500505689aada",
-    "modified_on": "2026-11-02 11:06:10",
+    "modified_on": "2026-11-02 13:28:24",
     "contents": {
         "widget_type": "SplitHorizontal",
         "object_alias": "axenox.Deployer.advisory_stats",
@@ -102,7 +102,8 @@
                                                 "split_by_attribute_alias": "advisory__level",
                                                 "stacked": true,
                                                 "y_attribute_alias": "advisory__uid:COUNT_DISTINCT",
-                                                "x_attribute_alias": "build__started_on_date"
+                                                "x_attribute_alias": "build__started_on_date",
+                                                "split_with_color_gradients": false
                                             }
                                         ],
                                         "axis_x": [
