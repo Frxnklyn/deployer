@@ -6,7 +6,6 @@ use exface\Core\CommonLogic\AbstractActionDeferred;
 use exface\Core\CommonLogic\UxonObject;
 use exface\Core\DataTypes\HexadecimalNumberDataType;
 use exface\Core\DataTypes\SortingDirectionsDataType;
-use exface\Core\DataTypes\StringDataType;
 use exface\Core\Exceptions\Actions\ActionRuntimeError;
 use exface\Core\Interfaces\DataSources\DataTransactionInterface;
 use exface\Core\Interfaces\Tasks\TaskInterface;
@@ -19,8 +18,9 @@ use exface\Core\Exceptions\Actions\ActionInputMissingError;
 use exface\Core\Factories\DataSheetFactory;
 use exface\Core\DataTypes\ComparatorDataType;
 use exface\Core\CommonLogic\Filemanager;
-use Symfony\Component\Process\Process;
 use axenox\Deployer\Actions\Traits\BuildProjectTrait;
+use axenox\Deployer\Common\Execution\ComposerBuildExecutor;
+use axenox\Deployer\Common\Execution\AssetPackagistFix;
 use exface\Core\Interfaces\Tasks\ResultMessageStreamInterface;
 use exface\Core\Exceptions\InvalidArgumentException;
 use exface\Core\Exceptions\Actions\ActionInputError;
@@ -30,6 +30,9 @@ use axenox\PackageManager\Common\LicenseBOM\BOMPackage;
 use axenox\PackageManager\Common\LicenseBOM\Format\JsonBOM;
 use axenox\PackageManager\Common\LicenseBOM\LicenseBOM;
 use exface\Core\DataTypes\JsonDataType;
+
+require_once __DIR__ . DIRECTORY_SEPARATOR . '..' . DIRECTORY_SEPARATOR . 'Common' . DIRECTORY_SEPARATOR . 'Execution' . DIRECTORY_SEPARATOR . 'ComposerBuildExecutor.php';
+require_once __DIR__ . DIRECTORY_SEPARATOR . '..' . DIRECTORY_SEPARATOR . 'Common' . DIRECTORY_SEPARATOR . 'Execution' . DIRECTORY_SEPARATOR . 'AssetPackagistFix.php';
 
 /**
  * Creates a new build for a project from one of the build variants configured for it.
@@ -164,9 +167,12 @@ class Build extends AbstractActionDeferred implements iCanBeCalledFromCLI, iCrea
         $buildData->dataCreate(false);
         
         try {
-            // Prepare project folder and deployer task file
-            $projectFolder = $this->prepareDeployerProjectFolder($task);
-            $buildTask = $this->prepareDeployerTask($task, $projectFolder, $buildName);
+            $projectFolder = null;
+            $recipe = $this->getProjectData($task, 'build_recipe');
+            $executor = new ComposerBuildExecutor();
+            $executor->assertSupportedRecipe((string) $recipe);
+
+            $projectFolder = $this->prepareBuildProjectFolder($task);
             
             $composerJson = $this->createComposerJson($task, $projectFolder);
             $buildData->setCellValue('composer_json', 0, $composerJson);
@@ -177,71 +183,67 @@ class Build extends AbstractActionDeferred implements iCanBeCalledFromCLI, iCrea
             $buildData->setCellValue('comment', 0, $this->getComment($task));
             $buildData->setCellValue('notes', 0, $this->getNotes($task));
             
-            // run the deployer task via CLI
-            if (getcwd() !== $this->getBasePath()) {
-                chdir($this->getBasePath());
-            }
-            $cmd = 'vendor' . DIRECTORY_SEPARATOR . 'bin' . DIRECTORY_SEPARATOR . "dep {$buildTask}";
-            
             $seconds = time();
-            
-            $environmentVars = $this->getCmdEnvironmentVars($projectFolder);
 
             // Remove any stale build package BOM before starting the build
             $packageBomPath = $this->getBasePath() . $projectFolder . DIRECTORY_SEPARATOR . 'package_bom.json';
             if (is_file($packageBomPath) && ! unlink($packageBomPath)) {
                 throw new ActionRuntimeError($this, 'Cannot remove a stale build package BOM: ' . $packageBomPath);
             }
-            
-            $process = Process::fromShellCommandline($cmd, null, $environmentVars, null, $this->getTimeout());
-            $process->start();
-            foreach ($process as $msg) {
-                // Live output
-                yield $msg;
-                // Save to log
-                $log .= $msg;
-                // Save current log to DB
+
+            if ($phpVersion = $this->getBuildData($task, 'php_version', 'php')) {
+                $phpExecutable = BuildablePhpVersionDataType::getExecutable($phpVersion, $this->getWorkbench());
+            } else {
+                $phpExecutable = 'php';
+            }
+            $archivePath = $this->getBasePath() . $projectFolder . DIRECTORY_SEPARATOR
+                . $this->getFolderNameForBuilds() . DIRECTORY_SEPARATOR . $buildName . '.tar.gz';
+            $execution = $executor->execute(
+                $this->getBasePath() . $projectFolder,
+                $archivePath,
+                $phpExecutable,
+                $this->getComposerHomePath($projectFolder),
+                $this->getTimeout(),
+                ['vendor', 'composer.json', 'composer.lock', 'composer.phar']
+            );
+            foreach ($execution as $output) {
+                yield $output;
+                $log .= $output;
                 $buildData->setCellValue('log', 0, $log);
                 $buildData->dataUpdate(false);
             }
-            
-            if ($process->isSuccessful() === false) {
-                $buildData->setCellValue('status', 0, 90); // failed
-                $msg = '✘ FAILED building ' . $buildName . '.';
-            } else {
-                $buildData->setCellValue('status', 0, 99); // completed
-                $seconds = time() - $seconds;
-                $msg = '✔ SUCCEEDED building ' . $buildName . ' in ' . $seconds . ' seconds.';
-            }
-            $buildData->dataUpdate(false);
-            
-            $composerLockPath = $this->getBasePath() . $projectFolder . DIRECTORY_SEPARATOR . 'composer.lock';
-            if (file_exists($composerLockPath)) {
-                $buildData->setCellValue('composer_lock', 0, file_get_contents($composerLockPath));
-            }
+            $executionResult = $execution->getReturn();
 
-            // Read the build package BOM if the build was successful
-            if ($process->isSuccessful() && is_file($packageBomPath)) {
+            $buildData->setCellValue('status', 0, 99);
+            $buildData->setCellValue('composer_lock', 0, $executionResult['composer_lock']);
+            if ($executionResult['package_bom'] !== null && is_file($packageBomPath)) {
                 $buildData->setCellValue('package_bom', 0, $this->buildPackageBom($packageBomPath));
             }
-            
-            // Delete temporary files
-            $this->cleanupFiles($projectFolder);
-            
-            // Send success/failure message
+            $seconds = time() - $seconds;
+            $msg = '✔ SUCCEEDED building ' . $buildName . ' in ' . $seconds . ' seconds.';
             yield $msg;
             $log .= $msg;
-            
             $buildData->setCellValue('log', 0, $log);
-            
-            // Update build entry's state and save log to data source
             $buildData->dataUpdate(false);
         } catch (\Throwable $e) {
             $log .= PHP_EOL . '✘ ERRROR: ' . $e->getMessage() . ' in ' . $e->getFile() . ' on line ' . $e->getLine();
             $buildData->setCellValue('log', 0, $log);
             $buildData->setCellValue('status', 0, 90); // failed
+            if ($projectFolder !== null) {
+                $composerLockPath = $this->getBasePath() . $projectFolder . DIRECTORY_SEPARATOR . 'composer.lock';
+                if (is_file($composerLockPath)) {
+                    $composerLock = file_get_contents($composerLockPath);
+                    if ($composerLock !== false) {
+                        $buildData->setCellValue('composer_lock', 0, $composerLock);
+                    }
+                }
+            }
             $this->getWorkbench()->getLogger()->logException($e);
             $buildData->dataUpdate(false);
+        } finally {
+            if ($projectFolder !== null) {
+                $this->cleanupFiles($projectFolder);
+            }
         }
 
         if ((int) $buildData->getCellValue('status', 0) === 99) {
@@ -272,7 +274,7 @@ class Build extends AbstractActionDeferred implements iCanBeCalledFromCLI, iCrea
     /**
      * Reduces the staged license inventory to the build's database representation.
      * 
-     * Recipes preserve the original JSON before cleaning up their vendor folder.
+     * The native executor preserves the original JSON before cleaning up its vendor folder.
      * Invalid inventories fail rather than recording an apparently clean empty build.
      * JsonBOM owns the minimal format; the staged source is left unchanged.
      * 
@@ -395,80 +397,7 @@ class Build extends AbstractActionDeferred implements iCanBeCalledFromCLI, iCrea
     }
     
     /**
-     * Returns the path to the deployer recipe file relative to the base installation folder.
-     * 
-     * E.g. for built-in recipes it's "vendor/axenox/deployer/Recipes..."
-     * 
-     * @param TaskInterface $task
-     * @return string
-     */
-    protected function getBuildRecipeFile(TaskInterface $task): string
-    {
-        $recipe = $this->getProjectData($task, 'build_recipe');
-        
-        switch ($recipe) {
-            case BuildRecipeDataType::CUSTOM_BUILD:
-                return $this->getProjectData($task, 'build_recipe_custom_path');
-            default:
-                if ($recipe === BuildRecipeDataType::COMPOSER_INSTALL_WITH_ASSET_FIX) {
-                    $recipe = BuildRecipeDataType::COMPOSER_INSTALL;
-                }
-                $recipiesBasePath = Filemanager::FOLDER_NAME_VENDOR . DIRECTORY_SEPARATOR . $this->getApp()->getDirectory() . DIRECTORY_SEPARATOR . 'Recipes' . DIRECTORY_SEPARATOR . 'Build' . DIRECTORY_SEPARATOR;
-                return $recipiesBasePath . $recipe . '.php';
-        }
-    }
-    
-    /**
-     * Generates a deployer task file named `build.php` and returns the CLI arguments to run the actual build command.
-     * 
-     * @param TaskInterface $task
-     * @param string $buildFolder
-     * @param string $buildName
-     * @return string
-     */
-    protected function prepareDeployerTask(TaskInterface $task, string $buildFolder, string $buildName) : string
-    {
-        $slash = DIRECTORY_SEPARATOR;
-        $builds_archives_path = $slash . $this->getFolderNameForBuilds();
-
-        // Get deployer recipe file path
-        $recipePath = $this->getBuildRecipeFile($task);
-        $deployerTaskName = basename($recipePath, '.php');
-        
-        // Get the PHP path from the PHP version
-        if ($phpVersion = $this->getBuildData($task, 'php_version', 'php')) {
-            $phpPath = BuildablePhpVersionDataType::getExecutable($phpVersion, $this->getWorkbench());
-        } else {
-            $phpPath = 'php';  
-        }
-        
-        $content = <<<PHP
-<?php
-namespace Deployer;
-
-require 'vendor/autoload.php';
-require 'vendor/deployer/deployer/recipe/common.php';
-
-set('release_name', '{$buildName}');
-
-// === Path definitions ===
-set('builds_archives_path', __DIR__ . '{$builds_archives_path}');
-set('php_executable', '{$phpPath}');
-
-require '{$recipePath}';
-
-PHP;
-        // Save to file
-        $content_php = fopen($this->getWorkbench()->filemanager()->getPathToBaseFolder() . $slash . $buildFolder . $slash . 'build.php', 'w');
-        fwrite($content_php, $content);
-        fclose($content_php);
-        
-        // Return the deployer CLI parameters to run the task
-        return "-f=\"{$buildFolder}{$slash}build.php\" {$deployerTaskName}";
-    }
-    
-    /**
-     * Prepares the folder structure needed to run the deployer command and 
+     * Prepares the folder structure needed to run the Composer build and
      * returns it's path relative to workbench installation root.
      * 
      * ```
@@ -480,7 +409,7 @@ PHP;
      * @param TaskInterface $task
      * @return string
      */
-    protected function prepareDeployerProjectFolder(TaskInterface $task) : string
+    protected function prepareBuildProjectFolder(TaskInterface $task) : string
     {
         $projectFolder = $this->getProjectFolderRelativePath($task);
         $basePath = $this->getBasePath();
@@ -510,8 +439,12 @@ PHP;
     protected function generateBuildName(TaskInterface $task) : string
     {
         $timestamp = date('YmdHis');
+        $version = $this->getVersion($task);
+        if (preg_match('/[<>:"\/\\\\|?*\x00-\x1F]/', $version) === 1 || rtrim($version, ". ") !== $version) {
+            throw new ActionInputError($this, 'Build version contains characters that cannot be used in an archive filename.', '784EENG');
+        }
         
-        return $this->getVersion($task) . '+' . $timestamp;
+        return $version . '+' . $timestamp;
 
     } 
     
@@ -629,36 +562,17 @@ PHP;
      */
     protected function getComposerJsonWithAssetFix(string $composerJson, TaskInterface $task) : string
     {
-        $composerArray = json_decode($composerJson, true);
-        
         $lockData = DataSheetFactory::createFromObjectIdOrAlias($this->getWorkbench(), 'axenox.Deployer.build');
         $lockData->getFilters()->addConditionFromString('build_variant', $this->getBuildVariantData($task, 'uid'), ComparatorDataType::EQUALS);
         $lockData->getFilters()->addConditionFromString('status', 99, ComparatorDataType::EQUALS);
         $lockData->getSorters()->addFromString('created_on', SortingDirectionsDataType::DESC);
         $lockCol = $lockData->getColumns()->addFromExpression('composer_lock');
         $lockData->dataRead(1);
-        $lockJson = $lockCol->getValue(0);
-        $lockArray = json_decode($lockJson, true);
-        
-        $repos = [];
-        foreach ($lockArray['packages'] as $lockPackage) {
-            $packageName = $lockPackage['name'];
-            if (
-                StringDataType::startsWith($packageName, 'npm-asset/') 
-                || StringDataType::startsWith($packageName, 'bower-asset/')
-            ) {
-                $repos[] = [
-                    "type" => "composer",
-                    "url" => "https://cdn.asset-packagist.org/p/{$packageName}/latest.json",
-                    "only" => [
-                        $packageName
-                    ]
-                ];
-            }
+        if ($lockData->isEmpty()) {
+            throw new ActionRuntimeError($this, 'Asset-Packagist fix requires a previous successful build with a Composer lockfile.');
         }
-        // Put the workaround-repos in the front to give them higher priority
-        $composerArray['repositories'] = array_merge($repos, $composerArray['repositories']);
-        return json_encode($composerArray, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE);
+        $lockJson = $lockCol->getValue(0);
+        return AssetPackagistFix::apply($composerJson, $lockJson);
     }
     
     /**
@@ -766,14 +680,14 @@ PHP;
     {
         $baseAbsPath = $this->getBasePath();
         $stagedFiles = [
-            $projectFolder . DIRECTORY_SEPARATOR . 'build.php',
-            $projectFolder . DIRECTORY_SEPARATOR . 'composer.json',
-            $projectFolder . DIRECTORY_SEPARATOR . 'composer.lock',
-            $projectFolder . DIRECTORY_SEPARATOR . 'package_bom.json',
-            $projectFolder . DIRECTORY_SEPARATOR . 'auth.json'
+            $baseAbsPath . $projectFolder . DIRECTORY_SEPARATOR . 'composer.json',
+            $baseAbsPath . $projectFolder . DIRECTORY_SEPARATOR . 'composer.lock',
+            $baseAbsPath . $projectFolder . DIRECTORY_SEPARATOR . 'package_bom.json',
+            $baseAbsPath . $projectFolder . DIRECTORY_SEPARATOR . 'auth.json'
         ];
         
         $stagedDirectories = [
+            $baseAbsPath . $projectFolder . DIRECTORY_SEPARATOR . 'vendor',
             // .composer folder contains the composer cache. Perhaps it's not bad too keep it...
             // $baseAbsPath . $projectFolder . DIRECTORY_SEPARATOR . '.composer'
         ];   
@@ -787,23 +701,11 @@ PHP;
         
         //delete directories last
         foreach($stagedDirectories as $dir){
-            Filemanager::deleteDir($dir);
+            if (is_dir($dir)) {
+                Filemanager::deleteDir($dir);
+            }
         }
    
-    }
-    
-    /**
-     * Returns the environment variables needed for the cli to work with symfony.
-     * 
-     * @param string $projectFolder
-     * @return array
-     */
-    protected function getCmdEnvironmentVars(string $projectFolder) : array
-    {
-        $composerHomePath = $this->getComposerHomePath($projectFolder);
-        return [
-            'COMPOSER_HOME' => $composerHomePath,
-        ];
     }
     
     /**

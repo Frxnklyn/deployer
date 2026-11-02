@@ -18,20 +18,21 @@ Composer remains the build and dependency-management tool. `axenox/packagemanage
 
 ## 3. Current state
 
-These are source-review findings on the current `1.x-dev` baseline, not completed V3 tasks:
+The initial source-review findings below describe the pre-change baseline. The current transitional implementation status is summarized after them; it does not mark the full V3 architecture as complete.
 
-- `composer.json` requires `deployer/deployer` (`^6.5`), `exface/core` and `axenox/packagemanager`.
+- The baseline `composer.json` required `deployer/deployer` (`^6.5`), `exface/core` and `axenox/packagemanager`. The package requirement has now been removed; Composer and PackageManager remain.
 - `Actions/Build.php`, `Actions/Deploy.php`, and the procedural recipe files use Deployer task functions and/or the Deployer runtime. The Build action explicitly loads `vendor/deployer/deployer/recipe/common.php`.
-- Build and deployment recipe enums remain in `DataTypes/BuildRecipeDataType.php` and `DataTypes/DeploymentRecipeDataType.php`; model metadata references both enums.
-- Legacy recipes, including SSH recipes, remain in `Recipes/`.
+- The Actions now use native PHP executors for the retained Composer and updater/manual deployment selections. Procedural task implementations were removed; original linked recipe entry points now fail explicitly, and the standalone `.phx` installer template remains.
+- Build and deployment recipe enums remain in `DataTypes/BuildRecipeDataType.php` and `DataTypes/DeploymentRecipeDataType.php`; model metadata references both enums to preserve legacy saved values.
 - The existing roadmap records host ownership of the deployment pipeline as decided (`[x]`). That is an architecture decision, not an implemented feature. Other roadmap checklists remain open.
-- Existing unit tests cover only a small portion of the target behavior. There are no V3 pipeline tests yet.
+- The new native executor tests pass (9 tests, 43 assertions), including a real offline Composer install and mocked updater push success/failure. Host-level PackageManager callback/download, Azure/manual installation, rollback and Windows/Unix integration tests remain pending.
+- The package's own Composer manifest is valid, but isolated dependency resolution could not be verified because the manifest has no configured private repositories for `exface/core` and `axenox/packagemanager`. The local ExFace host project also declares `deployer/deployer` separately; it is outside this package worktree.
 
 ## 4. Teil-Roadmaps / planned technical changes
 
 | # | Roadmap | Primary scope | Status |
 |---|---|---|---|
-| 01 | [Dependency Removal](01_Dependency_Removal.md) | Inventory, replace all supported Deployer execution paths, then remove the Composer package as the final gate. | [ ] Not started |
+| 01 | [Dependency Removal](01_Dependency_Removal.md) | Early standalone milestone: native compatibility executors and removal from this package manifest; private dependency resolution and host integration gates remain. | [~] In progress |
 | 02 | [Pipeline Architecture](02_Pipeline_Architecture.md) | Contracts, tasks/results, selectors, discovery, factory, ownership and execution reporting. | [ ] Not started |
 | 03 | [Build Pipelines](03_Build_Pipelines.md) | All four legacy build options; Composer workflow, lock/BOM and artifacts. | [ ] Not started |
 | 04 | [Deployment Pipelines](04_Deployment_Pipelines.md) | All nine legacy deployment options, self-extractor behavior, host execution and rollback. | [ ] Not started |
@@ -42,14 +43,14 @@ Checkboxes describe verified implementation work only. At initial decomposition,
 
 ## 5. Work order and dependencies
 
-1. **First implementation focus: Roadmap 01 inventory and replacement plan.** Do not remove the Composer requirement yet. Confirm every call site and supported path, define the final removal gate, and establish test fixtures.
+1. **Early milestone: Roadmap 01.** The in-package inventory, native compatibility executors, focused tests and package-manifest removal are implemented. Verify remaining private Composer resolution and host integrations; this milestone does not wait for the full V3 pipeline work.
 2. Resolve the common contract and execution/state reporting in Roadmap 02 before coding pipeline families. Confirm what is shared and how Actions remain the persistence boundary.
 3. Implement and verify the replacement Build and Deployment pipelines in Roadmaps 03 and 04. They depend on the interfaces and factory in Roadmap 02.
 4. Define and implement UXON editors and idempotent data migrations in Roadmap 05 after prototype selectors/configuration ownership are sufficiently settled. Migration depends on the selected contracts and supported prototype options in Roadmaps 02–04.
 5. Resolve lifecycle, identity, concurrency, bootstrap and security decisions in Roadmap 06 before accepting an on-demand/container deployment implementation.
-6. Return to Roadmap 01's removal gate only when all supported Build/Deploy paths, migrations, tests and compatibility criteria pass. Remove the dependency and residual Deployer runtime/bootstrap only then.
+6. Roadmap 01's package-level removal gate is separate from the full V3 release gates. Roadmaps 02–05 still replace the transitional compatibility mapping with the final pipeline architecture and migrate metadata; Roadmap 06 remains needed for On-Demand Deployment. None of those future features was added as a prerequisite to removing the external recipe engine.
 
-Roadmaps 03–05 are prerequisites to actual dependency removal; Roadmap 06 provides lifecycle and stabilization gates for the on-demand deployment and final release. These ordering notes do not authorize omitting or silently deferring any existing requirement.
+Roadmaps 03–05 are prerequisites to completing the full V3 build/deployment architecture and metadata migration, not to the early dependency-removal milestone. Roadmap 06 provides lifecycle and stabilization gates for the new On-Demand Deployment and final release. These ordering notes do not authorize omitting or silently deferring any existing requirement.
 
 ## 6. Cross-roadmap requirements and decisions
 

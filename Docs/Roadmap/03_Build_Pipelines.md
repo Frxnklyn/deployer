@@ -13,15 +13,15 @@ Replace the four selectable legacy build recipe options with supported build pip
 
 ## 3. Current state
 
-`Actions/Build.php` currently selects `BuildRecipeDataType`, uses the procedural `Recipes/Build.php`, and explicitly loads `vendor/deployer/deployer/recipe/common.php`. `Recipes/Build/ComposerInstall.php` registers a Deployer task and executes the current Composer build workflow; `Recipes/Build/CloneLocal.php` archives the running installation without resolving dependencies. `ComposerInstallAssetFix` is selected through the enum and injects Asset-Packagist latest-cache repositories based on a prior successful build's lockfile; it has no separate recipe file. `CustomBuild` loads the project-configured `build_recipe_custom_path`.
+Before the dependency-removal step, `Actions/Build.php` selected `BuildRecipeDataType`, used the procedural `Recipes/Build.php`, and loaded `vendor/deployer/deployer/recipe/common.php`. The legacy `Recipes/Build/ComposerInstall.php` and `Recipes/Build/CloneLocal.php` registered Deployer tasks; both recipe files have since been removed. The Composer selections now use the native executor, while `CloneLocal` is explicitly rejected. `ComposerInstallAssetFix` is selected through the enum and injects Asset-Packagist latest-cache repositories based on a prior successful build's lockfile; it has no separate recipe file. `CustomBuild` previously loaded the project-configured `build_recipe_custom_path` and is now explicitly rejected.
 
 The current recipe inventory is not evidence that every selectable option works in production. Existing files/selection and required target are listed below:
 
 | Legacy recipe | Existing implementation | V3 treatment |
 |---|---|---|
-| `ComposerInstall` | `Recipes/Build/ComposerInstall.php` and shared tasks in `Recipes/Build.php` | Replace with Composer build prototype. |
+| `ComposerInstall` | Legacy: `Recipes/Build/ComposerInstall.php` and shared tasks in `Recipes/Build.php` (removed) | Native Composer executor is transitional; replace with Composer build prototype. |
 | `ComposerInstallAssetFix` | `Actions/Build.php` cache-repository injection; no dedicated recipe | Same Composer prototype with explicit `asset_packagist_cache_fix` setting. |
-| `CloneLocal` | `Recipes/Build/CloneLocal.php` archives selected local files and BOM | Retire; require an explicit Composer build replacement, never silently pretend a clone is equivalent. |
+| `CloneLocal` | Legacy: `Recipes/Build/CloneLocal.php` archived selected local files and BOM (removed) | Retire; current executor rejects it and requires an explicit Composer build replacement, never silently pretend a clone is equivalent. |
 | `CustomBuild` | Action loads configured `build_recipe_custom_path` | Retire arbitrary procedural file selection; port known custom workflows to app-owned prototype and report unknown paths for manual handling. |
 
 ## 4. Planned technical changes

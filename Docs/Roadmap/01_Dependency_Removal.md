@@ -2,7 +2,9 @@
 
 ## 1. Goal
 
-Remove the external `deployer/deployer` package and every supported reliance on its runtime, procedural recipe functions, helpers and configuration. This is the first roadmap's priority, but deleting the Composer requirement is the **last implementation step** after replacement paths and acceptance tests pass.
+Remove `deployer/deployer` from `axenox/deployer` as an early, independently releasable V3 milestone. Replace only the procedural build and deployment execution that requires the library; do not wait for the full V3 pipeline factory, prototype discovery, UXON editors, SQL migration or On-Demand Deployment.
+
+The Composer requirement is removed only after the supported in-package execution paths have native replacements and the dependency-free test gates pass. Composer and `axenox/packagemanager` remain required.
 
 ## 2. Scope / non-goals
 
@@ -10,80 +12,100 @@ Remove the external `deployer/deployer` package and every supported reliance on 
 - Out of scope: removing Composer or `axenox/packagemanager`; introducing a Composer-free build path; inventing a generic workflow engine; removing supported workflow behavior without explicit migration or failure reporting.
 - The new pipeline contracts and feature parity are owned by [02 Pipeline Architecture](02_Pipeline_Architecture.md), [03 Build Pipelines](03_Build_Pipelines.md), [04 Deployment Pipelines](04_Deployment_Pipelines.md), and [05 UXON and Migration](05_Uxon_and_Migration.md).
 
-## 3. Current state
+## 3. Current state and dependency inventory
 
-Reviewed implementation on the branch baseline:
+The initial inventory was taken from the branch baseline before replacement. The table records the original dependency and the current treatment, so a deleted implementation is not mistaken for a completed V3 feature.
 
 | Surface | Existing evidence / dependency | Required treatment |
 |---|---|---|
-| `composer.json` | Requires `deployer/deployer: ^6.5`; also requires `exface/core` and `axenox/packagemanager`. | Keep Composer, Core and PackageManager. Remove only the Deployer requirement after all gates below pass. |
-| `Actions/Build.php` | Requires Deployer recipe helpers (`vendor/deployer/deployer/recipe/common.php`) and selects/runs recipe tasks. Uses `BuildRecipeDataType`, including custom build and Asset-Packagist selection. | Replace execution with Build pipeline factory, task, generator/result processing, preserving behavior from Roadmap 03. |
-| `Actions/Deploy.php` | Uses recipe selection and creates/runs Deployer deployment tasks. Contains the `CustomDeploy` selection mismatch: it checks `BuildRecipeDataType::CUSTOM_BUILD` rather than `DeploymentRecipeDataType::CUSTOM_DEPLOY`. | Replace with pipeline execution, preserve useful status/output handling, explicitly detect/report legacy custom deployment configuration. |
-| `Recipes/Build.php`, `Recipes/Deploy.php`, `Recipes/Config.php` | Deployer namespaces, task registration, `get`/`set`, `run` and recipe configuration. | Remove procedural task graph after its supported behaviors have replacement implementations and tests. |
-| `Recipes/Build/ComposerInstall.php` | Registered `ComposerInstall` task delegates Composer build operations. | Preserve Composer as the build tool; move the supported workflow to the Composer build prototype. |
-| `Recipes/Build/CloneLocal.php` | Registered `CloneLocal` recipe. | Remove only with an explicit unsupported-configuration report and replacement instructions; do not silently treat it as equivalent to a Composer build. |
-| `Recipes/Deploy/*.php` | Nine selectable legacy deployment options. Some tasks call SSH, Cygwin or shell commands; selectable does not prove a path works reliably. | Migrate retained supported paths; detect and report retired SSH/custom configurations. Full mapping is in Roadmap 04. |
-| `Recipes/SelfDeployment.php`, `SelfExtractor.php`, `Network.php`, `RemoteWindows.php`, `SelfExtractingPHP/*` | Shared packaging/install code plus Deployer task registration and platform-specific commands. | Retain required behavior in pipeline/installer/OS adapters; remove Deployer-specific scaffolding only after consumers are replaced. |
-| `DataTypes/BuildRecipeDataType.php`, `DataTypes/DeploymentRecipeDataType.php`, `Model/01_DATATYPE.json` | Static recipe enums are still used and registered in metamodel metadata. | Remove only after pipeline prototype discovery and UXON editors replace all selectors. |
-| `Facades/DeployerFacade.php` | Exposes current download/on-demand behavior and delegates to Deploy; not itself necessarily a Deployer-library call site. | Keep necessary facade behavior; update its integration only under Roadmaps 02/04/06. Do not remove PackageManager updater integrations. |
+| `composer.json` | Baseline required `deployer/deployer: ^6.5`, alongside `exface/core` and `axenox/packagemanager`. There is no package `composer.lock` in this repository. | The direct Deployer requirement is now removed. Composer, Core and PackageManager remain declared. |
+| `Actions/Build.php` | Baseline generated `build.php`, loaded Deployer's common recipe and invoked `vendor/bin/dep`; recipes used `task()`, `get()`, `set()` and `runLocally()`. | Now invokes `Common/Execution/ComposerBuildExecutor.php` with argument-array processes; Composer install, PackageManager hooks, archive, lock and BOM remain. |
+| Build recipe values | `ComposerInstall`, `ComposerInstallAssetFix`, `CloneLocal`, `CustomBuild`; the last two loaded/called procedural recipe files. | Both Composer values use the native executor; `CloneLocal` and `CustomBuild` now fail with a migration message. Enum/model values remain for compatibility; no SQL migration was added. |
+| `Actions/Deploy.php` | Baseline generated `deploy.php`, prepared SSH files and invoked `vendor/bin/dep`. The custom selection path had a `CustomBuild`/`CustomDeploy` mismatch. | Now maps saved recipe values to `LegacyDeploymentExecutor`; unsupported SSH/custom/unknown selections fail explicitly. The saved enum and history columns remain unchanged. |
+| Deployment recipe values | Nine options: updater push/pull/polling, USB manual transfer, Azure manual transfer, three SSH variants and `CustomDeploy`. | Native execution retains push, pull, polling, USB/manual and Azure/manual. SSH variants and arbitrary custom recipes fail explicitly rather than executing PHP recipe files. |
+| `Recipes/` | Deployer task registration, shared configuration, local/remote shell helpers and recipe files. | The procedural task graph and legacy recipe entry-point files have been removed; the Actions/executors reject unsupported saved values. `SelfExtractingPHP/SelfExtractingDeployment.php` remains as the standalone `.phx` installer template; it contains the release/install behavior, not the Deployer engine. |
+| `DataTypes/*RecipeDataType.php`, `Model/` | Enums and metamodel still select/store legacy recipe values. | Intentionally retained for transitional data compatibility. Prototype selection/editors and data migration remain in Roadmaps 02/05 and are not prerequisites for this milestone. |
+| `Facades/DeployerFacade.php`, PackageManager callbacks | OTA download/log API and PackageManager self-update integration; no Deployer recipe-engine calls found. | Kept unchanged. The native pull artifact retains the `{build}_{hostAlias}.phx` name consumed by the facade. |
+| `DeployTool.php`, `DataConnectors/DeployerSshConnector.php`, tests and docs | Standalone downloader and project-owned SSH connector are not `deployer/deployer` APIs. Documentation preserves historical references. | No external library bootstrap/call remains in these surfaces. The custom SSH connector is no longer invoked by the deployment Action. |
 
-The legacy source includes `task()` registrations and `run()` calls across recipes. `Actions/Build.php` directly includes the Deployer common recipe. These are concrete blocker examples, not an exhaustive substitute for the completion inventory below. The unmodified original requirements and migration policy remain in [Deployer_v3.md](Deployer_v3.md).
+Repository-wide source inventory found no additional in-package namespaces/classes from the external library, generated recipe execution entry points or hidden helper consumers outside the surfaces above. The only other known direct dependency is in the separate local ExFace host project's `composer.json` (`C:\wamp64\www\exface\exface\composer.json`); it is outside this package worktree and was not changed. Its presence does not make `axenox/deployer` depend on the library, but it does mean the local host installation may still install it independently.
+
+### Legacy call-site ledger
+
+| Baseline file / function | Deployer API or mechanism | Behavior and affected selection | Replacement / compatibility treatment |
+|---|---|---|---|
+| `Actions/Build.php::prepareDeployerTask`, `performDeferred` | Generated `build.php`, included `recipe/common.php`, ran `vendor/bin/dep`. | Orchestrated every build selection. | Removed; dispatches Composer selections to `ComposerBuildExecutor`. |
+| `Recipes/Build.php::build:create_from_composer` | `task/get/set/runLocally`; Core `CliCommandRunner` for Composer. | Composer install, PackageManager Composer hooks, archive and license BOM. | Composer remains; native executor runs Composer and tar with argument arrays, stages lock/BOM and retains PackageManager hooks. |
+| `Recipes/Build/ComposerInstall.php` | Legacy Deployer task registration; file has been removed. | `ComposerInstall`. | Native Composer build is dispatched by the Action; the deleted recipe file is not needed at runtime. |
+| `Actions/Build.php::getComposerJsonWithAssetFix` | Composer recipe selection plus prior successful build lock lookup. | `ComposerInstallAssetFix`. | Pure `AssetPackagistFix` maps prior npm/bower lock packages to CDN latest-cache repositories; requires a prior successful lock. |
+| `Recipes/Build/CloneLocal.php` | Legacy procedural archive recipe; file has been removed. | `CloneLocal`. | The native executor explicitly rejects the selection and tells the user to migrate to `ComposerInstall`; no silent substitution. |
+| Project `build_recipe_custom_path` and custom build recipe inclusion | Arbitrary PHP recipe file loaded by generated build script. | `CustomBuild`. | Path is not executed; clear unsupported-selection error. |
+| `Actions/Deploy.php::createDeployPhp`, `createDeployerProjectFolder`, `createDeployerTask`, `performDeferred` | Generated `deploy.php`, common recipe include, `vendor/bin/dep`; staged SSH key/config files. | All deployment selections. | Removed from the active Action path; native executor maps only supported values. |
+| `Recipes/SelfDeployment.php::self_deployment:create` (legacy file removed) | Deployer `task/get/set/runLocally`; Windows `copy /b`. | Previously built `{build}_{hostAlias}.phx` for push, pull/polling, USB/manual, Azure and SSH. | `DeploymentPackageBuilder` performs safe placeholder substitution and appends the archive bytes; native executor handles only supported selections. |
+| Updater Push recipe | Deployer task chain plus Guzzle multipart POST; TLS verification was disabled and upload exceptions were printed then swallowed. | `LocalBldUpdaterPush`. | Native Guzzle upload verifies TLS and surfaces non-success as deployment failure; mocked HTTP regression test. |
+| Updater Pull and Cron recipes | Deployer task chain, local artifact publication and status inferred from task-name text. | `LocalBldUpdaterPull`, `LocalBldUpdaterCron`. | Both publish the expected facade filename and return published status; Pull/Polling share the PackageManager SelfUpdate instructions. |
+| USB and Azure manual recipes | Deployer task chain and output instructions; no automated host installation. | `LocalBldUsbSelfExtractor`, `LocalBldAzureAppServiceManualInstall`. | Native artifact generation plus explicit transfer/Azure instructions; does not claim host installation completed. |
+| SSH SelfExtractor/Install/InstallWait recipes and `Recipes/Deploy.php` | Deployer remote `run/test/cd`, SSH upload/run, Cygwin path and release task graph. | `LocalBldSshSelfExtractor`, `LocalBldSshInstall`, `LocalBldSshInstallWait`. | Recipe sources and active SSH staging removed; saved selections fail with a migration message. |
+| Project `deployment_recipe_custom_path` and custom recipe inclusion | Arbitrary PHP recipe loaded from configuration (including the old `CustomBuild` comparison mismatch). | `CustomDeploy` and custom values. | Custom paths are not loaded; error identifies the unsupported selection. |
+| `Recipes/SelfExtractingPHP/SelfExtractingDeployment.php` | No Deployer namespace or recipe API; standalone PHP installer and PackageManager integration. | Release extraction, shared dirs, config merge, local packages/vendors, cleanup and rollback. | Retained as the payload template. Native packaging does not replace its installer behavior. |
+| `Facades/DeployerFacade.php`, `DeployTool.php`, model enums, `DataConnectors/DeployerSshConnector.php` | No direct Deployer recipe-engine API. | OTA callbacks/downloads, standalone download, stored selectors and project-owned connector. | Facade and downloader remain; selectors and historical data remain; SSH connector is no longer invoked by this Action. |
+
+The original, unmodified V3 requirements and complete legacy mapping remain in [Deployer_v3.md](Deployer_v3.md) and [04 Deployment Pipelines](04_Deployment_Pipelines.md).
 
 ## 4. Planned technical changes
 
-1. Inventory all direct and indirect references: namespaces/classes/functions, bootstrap includes, command invocations, composer configuration, recipe inheritance, task names, model selectors, tests and documentation.
-2. For each supported legacy behavior, identify the replacement pipeline, shared helper or operating-system adapter and its owning Action. Track explicit exceptions and unsupported options with migration/report behavior.
-3. Replace Build/Deploy procedural orchestration with the common contract and result flow. Actions continue owning records and persisting run states; pipeline implementations do the work.
-4. Remove Deployer task registration, Deployer-specific command assumptions and the package bootstrap when no retained path needs them.
-5. Remove the dependency declaration only after the final checklist is evidence-checked. Composer and PackageManager remain dependencies.
+1. **Dependency Inventory:** identify package, class/function, generated file, CLI, bootstrap, helper, action, facade, connector, model, test and documentation references. Separate the package's dependencies from a parent application's direct requirements.
+2. **Replacement Implementation:** use the smallest reusable components compatible with later pipeline prototypes: a Composer build executor, a self-extractor builder and an explicit legacy-selection executor. Keep Action persistence/status responsibilities. Do not add a factory, prototype discovery or new UXON model.
+3. **Compatibility and Regression Tests:** preserve the two Composer build choices and five supported updater/manual deployment choices; reject retired selections with a clear error. Test artifacts, lock/BOM, PackageManager hook metadata, status results, push upload and error paths.
+4. **Final Dependency Removal:** remove the package requirement only after the production search and replacement tests show no supported path depends on the external library. Keep Composer and PackageManager.
 
 ## 5. Work packages
 
-- [ ] **Inventory:** enumerate every Composer package/API/runtime reference and every Deployer `task`, `run`, `get`, `set`, recipe include, command and configuration value in the repository.
-- [ ] **Trace:** map each call site to a supported user-visible behavior and its replacement roadmap/work package.
-- [ ] **Define gate:** document legacy-option migration/error handling, supported PHP/OS versions and how mixed-version installations behave.
-- [ ] **Replace Build paths:** complete Roadmap 03, including Composer install, Asset-Packagist fix, archive creation, BOM/lock and custom/clone behavior.
-- [ ] **Replace Deploy paths:** complete supported options and removal reporting in Roadmap 04; preserve required updater and PackageManager behavior.
-- [ ] **Replace shared task helpers:** provide portable operations via pipelines/adapters; identify and remove unused Deployer-only utilities.
-- [ ] **Replace selectors and metadata:** complete prototype selection/discovery and editors in Roadmaps 02/05 before deleting recipe enum registrations.
-- [ ] **Migrate stored selections/settings:** complete the SQL and data-preservation gates in Roadmap 05; verify old unsupported values fail clearly, never silently.
-- [ ] **Search gate:** repository-wide search finds no runtime dependency on Deployer symbols/functions, bootstrap files, recipe files or undeclared Deployer command paths. Any remaining mention must be historical documentation or a test asserting absence.
-- [ ] **Test gate:** all focused and end-to-end criteria below pass on supported environments; no retained workflow depends on the package.
-- [ ] **Final manifest change:** remove `deployer/deployer` from `composer.json`, update the lockfile through the repository's normal dependency workflow, then repeat the search and tests.
+- [x] **Dependency Inventory:** mapped the package manifest, actions, recipe files, standalone installer, facade, enums/model, connector, tests and the separate host project's direct dependency.
+- [x] **Replacement Implementation:** native build/archive/BOM execution and native `.phx`/updater/manual orchestration are in place; Composer and PackageManager remain.
+- [x] **Compatibility mapping:** `ComposerInstall` and `ComposerInstallAssetFix` remain supported. Updater push/pull/polling, USB/manual and Azure/manual remain supported. `CloneLocal`, `CustomBuild`, `CustomDeploy`, SSH and unknown selections fail explicitly.
+- [x] **Recipe coverage:** all 4 build values and all 9 deployment values are accounted for (2 build + 5 deployment retained; 2 build + 4 deployment rejected explicitly).
+- [x] **Focused regression tests:** 9 native execution tests passed (43 assertions), including a real offline Composer install, archive/lock/BOM behavior, Asset-Packagist repository fix, `.phx` generation, updater push success/failure mocks and retired-recipe errors.
+- [x] **Final package manifest change:** removed `deployer/deployer` from this package's `composer.json`. No package lockfile existed to update.
+- [x] **Package source search:** no production `deployer/deployer` bootstrap, `vendor/bin/dep`, Deployer namespace, recipe `task()` or `runLocally()` reference remains in PHP implementation.
+- [ ] **Dependency resolution in isolation:** `composer validate` passes with pre-existing publish warnings, but `composer update --dry-run` cannot resolve `exface/core` or `axenox/packagemanager` because this package manifest has no configured private repositories. Confirm resolution in the project's normal private Composer environment.
+- [ ] **Host integration matrix:** run the updater callback/download, HTTP endpoint upload, actual manual/Azure host installation, PackageManager self-update and rollback on supported Windows/Unix hosts. These environments were not available during this change.
+- [ ] **Legacy metadata retirement:** keep selectors and saved values for now; do not remove their enums/model columns or migrate history until Roadmap 05.
 
 ## 6. Dependencies
 
-- Roadmap 02 defines the only replacement execution contracts and ownership boundary.
-- Roadmaps 03 and 04 replace the supported build and deployment behavior.
-- Roadmap 05 migrates selectors, UXON settings and saved records before legacy recipe metadata is removed.
-- Roadmap 06 defines on-demand lifecycle and cross-platform stabilization gates; a release depending on on-demand deployment cannot claim final readiness until those gates pass.
-- Do not duplicate their design details here; link to the owning roadmap and track each dependency as incomplete until verified.
+- The transitional executors are intentionally reusable within future Roadmap 02 pipeline prototypes; the complete interfaces/factory/discovery are not required to remove this library.
+- Roadmaps 03 and 04 still own the full future pipeline architecture and feature parity, not a prerequisite for this early library-removal milestone.
+- Roadmap 05 owns UXON editors, SQL migration and retirement of saved recipe metadata; none is required for the native compatibility mapping.
+- Roadmap 06 owns new On-Demand Deployment, concurrency, lifecycle and stabilization; none is required to remove the recipe engine.
+- Before claiming release-level cross-platform readiness, complete the remaining host integration matrix below.
 
 ## 7. Open decisions
 
-- Exact complete list of indirect Deployer API consumers and any callers outside the app repository.
-- Minimum Core, PackageManager, PHP and OS versions for replacement implementations.
+- Whether other installations outside this app repository directly require `deployer/deployer`; the local ExFace host project does, independently.
+- Minimum Core, PackageManager, PHP and OS versions for the new native helpers and supported archive command.
 - Mixed-version behavior while a workbench, remote updater client or stored configuration is upgraded at a different time.
-- Which retired SSH/custom/CloneLocal configurations are still in active use and the required migration/report experience.
-- Whether any data or operational practices rely on Deployer-specific environment variables or command output.
+- Which retired SSH/custom/CloneLocal configurations are still in active use; current executor failure messages identify the selection but no persisted-record migration is performed.
+- Whether deployments rely on Deployer-specific environment variables or command output not captured by the in-repository inventory.
 
 All items above remain open unless separately resolved with documented evidence. The fact that a replacement is planned does not resolve them.
 
 ## 8. Acceptance criteria
 
-- [ ] All supported behavior has a tested replacement; retired options produce an actionable migration result or explicit failure.
-- [ ] Composer build workflow and `axenox/packagemanager` behavior remain available.
-- [ ] No Composer-free build option or generic workflow editor was introduced.
-- [ ] Composer metadata and lockfile no longer require Deployer after the final gated removal.
-- [ ] Build/Deploy Actions and facades do not load or invoke Deployer runtime APIs; legacy recipe classes and task definitions have no production consumer.
-- [ ] Record migration preserves project, host, variant and run history as scoped by Roadmap 05.
-- [ ] Upgrade fails clearly before execution if an unsupported configuration would otherwise be silently skipped.
+- [x] In-package supported workflow selections have a native implementation; retired options produce explicit errors.
+- [x] Composer build workflow and `axenox/packagemanager` Composer hooks remain available in the generated build.
+- [x] No Composer-free build option or generic workflow editor was introduced.
+- [x] This package's Composer manifest no longer requires Deployer; no package lockfile required updating.
+- [x] Build/Deploy Actions no longer create or invoke Deployer recipe scripts; facade and PackageManager integrations remain.
+- [ ] Full cross-platform host, updater callback and rollback integration tests pass.
+- [x] Unsupported recipe selections fail rather than being silently skipped or reported as successful.
+- [ ] Stored record migration and enum retirement are complete; these remain Roadmap 05 work.
 
 ### Test plan (run at the end)
 
-1. Before removal, run a repository search for Deployer references and review each match against the inventory; distinguish historical docs/test assertions from runtime use.
-2. Run focused unit tests for Build, Deploy, Composer configuration, recipe migration, task/result handling and DeployerFacade callbacks.
-3. Run a clean Composer install/update test with only declared runtime dependencies; verify Composer and `axenox/packagemanager` resolve and no Deployer package is installed or loaded.
-4. On Windows and Unix build-server fixtures, create a Composer build, verify the archive, lockfile, package BOM and cleanup, then deploy through each retained transport and exercise upgrade rollback/recovery.
-5. Run legacy-configuration fixtures for every recipe enum value. Confirm retained values map correctly and CloneLocal/custom/SSH values are reported with the expected action, not silently mapped.
-6. After removing the requirement, repeat a case-sensitive and case-insensitive repository search for Deployer APIs, bootstrap paths and task functions, then rerun the full focused and end-to-end suites. Capture commands, versions and logs with secrets redacted.
+1. Search production code for `deployer/deployer`, Deployer namespaces/functions, `vendor/bin/dep`, generated recipe bootstraps and `runLocally`; review any remaining historical docs separately.
+2. Run `phpunit Tests/PHPUnit/Unit/NativeExecutionTest.php` with `COMPOSER_PHAR` set. Confirm Composer build artifact, lockfile, BOM, PackageManager hooks, Asset-Packagist fix, all retained deployment recipes, push response and unsupported errors.
+3. Run `composer validate` and the project's normal private-repository `composer install/update`; confirm `exface/core` and `axenox/packagemanager` resolve while the package's dependency tree omits Deployer.
+4. On Windows and Unix host fixtures, test updater push, pull callback/download, polling, USB/manual and Azure/manual installation, including rollback and status persistence.
+5. Test all legacy values. Confirm `CloneLocal`, `CustomBuild`, SSH, `CustomDeploy` and unknown values fail before any false-success state is saved.
+6. Only remove saved selectors/model metadata under Roadmap 05 after migrations, then rerun the focused and host integration matrix.
