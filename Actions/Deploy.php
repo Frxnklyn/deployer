@@ -256,13 +256,14 @@ class Deploy extends AbstractActionDeferred implements iCanBeCalledFromCLI, iCre
                 'deployment_recipe',
                 'deployment_recipe_custom_path',
                 'name',
-                'project_group'
+                'project_group',
+                'licenses_config'
             ]);
             $ds->getFilters()->addConditionFromString('uid', $projectUid, ComparatorDataType::EQUALS);
             $ds->dataRead();
             $this->projectData = $ds;
         }
-        return $this->projectData->getCellValue($projectAttributeAlias, 0);
+        return $this->projectData->getCellValue($projectAttributeAlias, 0) ?? '';
     }
 
     /**
@@ -322,6 +323,26 @@ class Deploy extends AbstractActionDeferred implements iCanBeCalledFromCLI, iCre
             $this->hostData = $ds;
         }
         return $this->hostData->getCellValue($option, $index);
+    }
+
+    /**
+     * Shares project license settings across hosts while retaining host-specific overrides.
+     * 
+     * @param array $deployConfig
+     * @param string|null $projectLicensesJson
+     * @return array
+     */
+    protected function mergeProjectLicensesConfig(array $deployConfig, ?string $projectLicensesJson) : array
+    {
+        if ($projectLicensesJson === null || trim($projectLicensesJson) === '') {
+            return $deployConfig;
+        }
+
+        $projectConfig = UxonObject::fromJson($projectLicensesJson);
+        $hostConfig = new UxonObject($deployConfig['default_app_config']['Licenses.config.json'] ?? []);
+        $deployConfig['default_app_config']['Licenses.config.json'] = $projectConfig->extend($hostConfig)->toArray();
+
+        return $deployConfig;
     }
 
     /**
@@ -436,6 +457,7 @@ class Deploy extends AbstractActionDeferred implements iCanBeCalledFromCLI, iCre
         } catch (\Throwable $e) {
             throw new ActionRuntimeError($this, 'Cannot parse deployment configuration: not a valid JSON!');
         }
+        $deployConfig = $this->mergeProjectLicensesConfig($deployConfig, $this->getProjectData($task, 'licenses_config'));
         if (($deployConfig['default_app_config'] ?? null) && ($deployConfig['default_app_config']['System.config.json'] ?? null)) {
             if ($deployConfig['default_app_config']['System.config.json']['SERVER.INSTALLATION_NAME'] ?? null === null) {
                 $deployFolderName = FilePathDataType::findFileName($basicDeployPath, false);
