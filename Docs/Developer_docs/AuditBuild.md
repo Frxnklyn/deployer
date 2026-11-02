@@ -57,6 +57,22 @@ for the local installation included in its archive. Both recipes stage the inven
 as `package_bom.json` beside the project's `composer.lock`. Existing inventories are
 read without modification; their presence bypasses manifest generation.
 
+At build start, Build captures the project's `licenses_config` and supplies it to both
+recipes as `project_licenses_config`. When present, this configuration is merged into
+the inventory even if `vendor/licenses.json` already exists. Packages and licenses match
+by identity and name, with project values overriding inventory defaults. Shared terms,
+license selections and private-package classifications therefore participate in the
+saved build's license checks. Configuration uses strict UXON import, not the result-input
+boundary: it cannot supply license provenance or `text_available` evidence.
+
+After applying project overrides, local declaration recovery and file enrichment run
+while the vendor folder still exists. Relative license files resolve against the built
+or cloned installation, not an unrelated directory on the audit machine. Later audits
+use the saved snapshot; changing project settings does not rewrite historical builds.
+Host-specific overrides remain deployment-time configuration. Custom recipes can pass
+`get('project_licenses_config', null)` as the second argument to `Build::buildRecipeBom()`
+to apply the same build-time configuration.
+
 Fallback generation does not depend on Composer installation hooks,
 database installation or remote license-text discovery. It recovers missing declarations
 from installed `package.json` manifests, then reads local license files before vendor cleanup.
@@ -78,9 +94,8 @@ JsonBOM's `minimal` format for the database value:
             "version": "v1.2.3",
             "ecosystem": "composer",
             "urn": "composer:example/library:v1.2.3",
-            "license": ["MIT"],
             "license_used": "MIT",
-            "license_text_source": {"MIT": "embedded"}
+            "licenses": [{"name": "MIT", "source": "local", "text_available": true}]
         },
         {
             "name": "example-widget",
@@ -88,9 +103,8 @@ JsonBOM's `minimal` format for the database value:
             "ecosystem": "npm",
             "urn": "npm:example-widget:2.0.0",
             "bundled_in": "composer:example/library:v1.2.3",
-            "license": ["MIT"],
             "license_used": "MIT",
-            "license_text_source": {"MIT": "missing"}
+            "licenses": [{"name": "MIT", "text_available": false}]
         }
     ]
 }
@@ -101,12 +115,27 @@ is retained as `bundled_in`, not inferred from a versionless supplement.
 Git sources also retain `source.type` and `source.reference`,
 allowing OSV to query locked commits from the BOM alone, including Bower packages.
 Repository URLs, license texts and other unrelated metadata are omitted.
-License declarations and effective selections are retained. `license_text_source` uses
-the constants `embedded`, `local`, `link` and `missing` described in
+License declarations and effective selections are retained. Each named license object records
+optional `source` provenance separately from `text_available`, as described in
 [PackageManager's JSON format reference](../../../packagemanager/Docs/License_management/Generated_license_BOM.md#json-export-format).
 Shared definitions in the staged full inventory are resolved before compaction; their
 source evidence survives, but their license text is not stored in the compact value.
 Unversioned packages remain in the inventory without an invented version.
+
+Legacy staged BOMs remain readable and are converted to the canonical shape when archived.
+Project and host license configuration also merge through the BOM model: package identities
+and license names, rather than array positions, determine matching. Host fields take precedence
+while omitted project defaults remain available. This supports both legacy maps and new arrays;
+no database migration or historical backfill is performed.
+
+Build and audit readers restore generated results through array-based BOM constructors, preserving
+recorded license provenance and availability. Runtime results serialize through `toBOM()`, not configuration
+export. Project and host UXON cannot set these evidence fields: the merged deployment configuration
+contains only named license configuration (`name`, `text`, `link`, `file`), not `source`,
+`text_available` or computed package URNs. A configured file reference is resolved only after
+an enricher successfully reads its terms.
+Configuration readers create an empty prototype and call `importUxonObject()` separately, retaining
+strict rejection of result-only fields even when merging legacy package definitions.
 
 Like `composer.lock`, the staged BOM is read and saved by Build, not by the recipe.
 Build saves the converted JSON in `package_bom` and removes the staged file during

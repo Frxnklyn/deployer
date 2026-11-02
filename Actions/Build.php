@@ -278,41 +278,61 @@ class Build extends AbstractActionDeferred implements iCanBeCalledFromCLI, iCrea
 
     /**
      * Captures build dependencies before recipes remove the built vendor folder.
-     * 
-        * Reuses vendor/licenses.json when present, otherwise reads local manifests and license files.
-        * Declarations are recovered before terms so text is indexed by the effective license.
-        * No remote queries or configured installation Workbench are required.
-     * 
+     *
+     * Project configuration overrides inventory defaults before local enrichment and compaction.
+     * Existing inventories without project overrides are reused without manifest generation.
+     * No remote queries or configured installation Workbench are required.
+     *
      * @param string $projectPath
+     * @param string|null $projectLicensesJson Configuration captured when the build started.
      * @return LicenseBOM
      */
-    public static function buildRecipeBom(string $projectPath) : LicenseBOM
+     public static function buildRecipeBom(string $projectPath, ?string $projectLicensesJson = null) : LicenseBOM
     {
         $vendorPath = $projectPath . DIRECTORY_SEPARATOR . 'vendor';
         $licensePath = $vendorPath . DIRECTORY_SEPARATOR . 'licenses.json';
         if (is_file($licensePath)) {
-            return new IncludesBOM($licensePath, $vendorPath);
+            $data = JsonDataType::decodeJson(file_get_contents($licensePath));
+            if (! is_array($data['packages'] ?? null)) {
+                throw new InvalidArgumentException('Build package BOM must contain a packages array.');
+            }
+            $bom = new LicenseBOM($data);
+            if ($projectLicensesJson === null || trim($projectLicensesJson) === '') {
+                return $bom;
+            }
+        } else {
+            $bom = new LicenseBOM();
+            $bom->merge(new ComposerBOM($projectPath . DIRECTORY_SEPARATOR . 'composer.lock'));
+            $bundleUrns = [];
+            foreach ($bom->getPackages() as $package) {
+                $bundleUrns[$package->getName()] = $package->getUrn();
+            }
+            foreach (glob($vendorPath . '/*/*/includes.json') as $include) {
+                $bundleName = basename(dirname($include, 2)) . '/' . basename(dirname($include));
+                $bom->merge(new IncludesBOM($include, $vendorPath, $bundleUrns[$bundleName] ?? null));
+            }
+            $licensesPath = $projectPath . DIRECTORY_SEPARATOR . 'config' . DIRECTORY_SEPARATOR . 'Licenses.config.json';
+            if (is_file($licensesPath)) {
+                $bom->merge(new IncludesBOM($licensesPath, $vendorPath));
+            }
         }
-        $bom = new LicenseBOM();
-        $bom->merge(new ComposerBOM($projectPath . DIRECTORY_SEPARATOR . 'composer.lock'));
-        $bundleUrns = [];
-        foreach ($bom->getPackages() as $package) {
-            $bundleUrns[$package->getName()] = $package->getUrn();
-        }
-        foreach (glob($vendorPath . '/*/*/includes.json') as $include) {
-            $bundleName = basename(dirname($include, 2)) . '/' . basename(dirname($include));
-            $bom->merge(new IncludesBOM($include, $vendorPath, $bundleUrns[$bundleName] ?? null));
-        }
-        $licensesPath = $projectPath . DIRECTORY_SEPARATOR . 'config' . DIRECTORY_SEPARATOR . 'Licenses.config.json';
-        if (is_file($licensesPath)) {
-            $bom->merge(new IncludesBOM($licensesPath, $vendorPath));
+        if ($projectLicensesJson !== null && trim($projectLicensesJson) !== '') {
+            $configuration = UxonObject::fromJson($projectLicensesJson)->toArray();
+            $projectBom = new LicenseBOM();
+            $projectBom->setLicenses($configuration['licenses'] ?? []);
+            foreach ($configuration['packages'] ?? (isset($configuration[0]) ? $configuration : []) as $package) {
+                $configuredPackage = new BOMPackage();
+                $configuredPackage->importUxonObject(new UxonObject(BOMPackage::normalizeArray($package)));
+                $projectBom->addPackage($configuredPackage);
+            }
+            $bom->merge($projectBom);
         }
         $manifestEnricher = new FindLicensePackageJsonEnricher($vendorPath);
         foreach ($bom->getPackages() as $package) {
             $bom->addPackage($manifestEnricher->enrich($package));
         }
-        $bom->addEnricher(new FindLicenseTextEnricher($vendorPath));
         $bom->addEnricher(new FindLicenseFileEnricher($vendorPath));
+        $bom->addEnricher(new FindLicenseTextEnricher($vendorPath));
         foreach ($bom->getPackages() as $package) {
             $bom->addPackage($package);
         }
@@ -339,14 +359,12 @@ class Build extends AbstractActionDeferred implements iCanBeCalledFromCLI, iCrea
         if (! is_array($data['packages'] ?? null)) {
             throw new InvalidArgumentException('Build package BOM must contain a packages array.');
         }
-        $bom = new LicenseBOM();
-        $bom->setLicenses($data['licenses'] ?? []);
         foreach ($data['packages'] as $package) {
             if (! is_array($package) || ! is_string($package['name'] ?? null) || $package['name'] === '') {
                 throw new InvalidArgumentException('Build package BOM packages must have a nonempty name.');
             }
-            $bom->addPackage(new BOMPackage($package));
         }
+        $bom = new LicenseBOM($data);
         return (new JsonBOM($bom))->setFormat('minimal')->buildJson();
     }
     
@@ -357,7 +375,7 @@ class Build extends AbstractActionDeferred implements iCanBeCalledFromCLI, iCrea
      * @param TaskInterface $task
      * @param string $projectAttributeAlias
      * @throws ActionInputMissingError
-     * @return string
+    * @return string
      */
     protected function getProjectData(TaskInterface $task, string $projectAttributeAlias): string
     {
@@ -366,7 +384,8 @@ class Build extends AbstractActionDeferred implements iCanBeCalledFromCLI, iCrea
             $ds->getColumns()->addMultiple([
                 'alias',
                 'build_recipe',
-                'build_recipe_custom_path'
+                'build_recipe_custom_path',
+                'licenses_config'
             ]);
 
             if ($task->hasParameter('project')) {
@@ -389,7 +408,7 @@ class Build extends AbstractActionDeferred implements iCanBeCalledFromCLI, iCrea
             }
             $this->projectData = $ds;
         }
-        return $this->projectData->getCellValue($projectAttributeAlias, 0);
+        return $this->projectData->getCellValue($projectAttributeAlias, 0) ?? '';
     }
     
     /**
@@ -492,6 +511,7 @@ class Build extends AbstractActionDeferred implements iCanBeCalledFromCLI, iCrea
         } else {
             $phpPath = 'php';  
         }
+        $projectLicensesJson = var_export($this->getProjectData($task, 'licenses_config'), true);
         
         $content = <<<PHP
 <?php
@@ -505,6 +525,7 @@ set('release_name', '{$buildName}');
 // === Path definitions ===
 set('builds_archives_path', __DIR__ . '{$builds_archives_path}');
 set('php_executable', '{$phpPath}');
+set('project_licenses_config', {$projectLicensesJson});
 
 require '{$recipePath}';
 

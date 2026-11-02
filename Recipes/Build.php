@@ -73,7 +73,7 @@ task('build:create_from_local', function() {
     }
     runLocally('tar -czf "{{builds_archives_path}}\{{archiv_name}}" {{source_files}}');        
     new Workbench();
-    (new JsonBOM(Build::buildRecipeBom(getcwd())))->saveToFile(
+    (new JsonBOM(Build::buildRecipeBom(getcwd(), get('project_licenses_config', null))))->saveToFile(
         $buildsPath . DIRECTORY_SEPARATOR . '..' . DIRECTORY_SEPARATOR . 'package_bom.json'
     );
 });
@@ -157,7 +157,10 @@ task('build:create_from_composer', function() {
     runLocally('cd "{{builds_archives_path}}" && tar -czf {{archiv_name}} -C "{{builds_archives_path}}/.." {{source_files}}', ['timeout' => $composer_timeout]);
 
     new Workbench();
-    (new JsonBOM(Build::buildRecipeBom($buildsPath . DIRECTORY_SEPARATOR . '..')))->saveToFile(
+    (new JsonBOM(Build::buildRecipeBom(
+        $buildsPath . DIRECTORY_SEPARATOR . '..',
+        get('project_licenses_config', null)
+    )))->saveToFile(
         $buildsPath . DIRECTORY_SEPARATOR . '..' . DIRECTORY_SEPARATOR . 'package_bom.json'
     );
 

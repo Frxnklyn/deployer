@@ -2,7 +2,6 @@
 namespace axenox\Deployer\Tests\PHPUnit\Unit;
 
 use axenox\Deployer\Actions\Build;
-use axenox\PackageManager\Interfaces\BOMPackageInterface;
 use exface\Core\CommonLogic\Workbench;
 use exface\Core\Exceptions\InvalidArgumentException;
 use exface\Core\Factories\ActionFactory;
@@ -28,8 +27,8 @@ class BuildPackageBOMTest extends TestCase
         try {
             file_put_contents($path, $source);
             $snapshot = json_decode($this->buildPackageBom($path), true, 512, JSON_THROW_ON_ERROR);
-            self::assertSame(['Client-License'], $snapshot['packages'][0]['license']);
-            self::assertSame(['Client-License' => BOMPackageInterface::LICENSE_TEXT_SOURCE_EMBEDDED], $snapshot['packages'][0]['license_text_source']);
+            self::assertSame(['Client-License'], array_column($snapshot['packages'][0]['licenses'], 'name'));
+            self::assertSame([['name' => 'Client-License', 'source' => 'config', 'text_available' => true]], $snapshot['packages'][0]['licenses']);
             self::assertArrayNotHasKey('licenses', $snapshot);
             self::assertArrayNotHasKey('license_text', $snapshot['packages'][0]);
             self::assertSame($source, file_get_contents($path));
@@ -54,13 +53,14 @@ class BuildPackageBOMTest extends TestCase
         try {
             $source = json_encode($data, JSON_THROW_ON_ERROR);
             file_put_contents($path, $source);
-            self::assertSame(['packages' => [
+            self::assertEquals(['packages' => [
                 ['name' => 'example/library', 'version' => 'v1.2.3', 'urn' => 'composer:example/library:v1.2.3',
-                    'ecosystem' => 'composer', 'license_text_source' => ['Other' => BOMPackageInterface::LICENSE_TEXT_SOURCE_MISSING]],
+                    'ecosystem' => 'composer', 'license_used' => 'MIT',
+                    'licenses' => [['name' => 'MIT', 'source' => 'config', 'text_available' => true]]],
                 ['name' => '@scope/package', 'version' => '2.0.0', 'urn' => 'npm:@scope/package:2.0.0',
-                    'ecosystem' => 'npm', 'license_text_source' => ['Other' => BOMPackageInterface::LICENSE_TEXT_SOURCE_MISSING]],
-                ['name' => 'example/unversioned', 'license' => ['MIT'], 'urn' => 'composer:example/unversioned:',
-                    'ecosystem' => 'composer', 'license_used' => 'MIT', 'license_text_source' => ['MIT' => BOMPackageInterface::LICENSE_TEXT_SOURCE_MISSING]]
+                    'ecosystem' => 'npm', 'licenses' => []],
+                ['name' => 'example/unversioned', 'licenses' => [['name' => 'MIT', 'text_available' => false]], 'urn' => 'composer:example/unversioned:',
+                    'ecosystem' => 'composer', 'license_used' => 'MIT']
             ]], json_decode($this->buildPackageBom($path), true, 512, JSON_THROW_ON_ERROR));
             self::assertSame($source, file_get_contents($path));
         } finally {
@@ -101,9 +101,9 @@ class BuildPackageBOMTest extends TestCase
         try {
             $source = json_encode($data, JSON_THROW_ON_ERROR);
             file_put_contents($path, $source);
-            self::assertSame(['packages' => [[
+            self::assertEquals(['packages' => [[
                 'name' => 'library', 'version' => '1.0.0', 'urn' => 'bower:library:1.0.0', 'ecosystem' => 'bower',
-                'license_text_source' => ['Other' => BOMPackageInterface::LICENSE_TEXT_SOURCE_MISSING],
+                'license_used' => 'MIT', 'licenses' => [['name' => 'MIT', 'source' => 'config', 'text_available' => true]],
                 'source' => ['type' => 'git', 'reference' => $commit]
             ]]], json_decode($this->buildPackageBom($path), true, 512, JSON_THROW_ON_ERROR));
             self::assertSame($source, file_get_contents($path));

@@ -28,6 +28,8 @@ use exface\Core\DataTypes\FilePathDataType;
 use exface\Core\CommonLogic\UxonObject;
 use exface\Core\Exceptions\Actions\ActionRuntimeError;
 use exface\Core\DataTypes\JsonDataType;
+use axenox\PackageManager\Common\LicenseBOM\BOMPackage;
+use axenox\PackageManager\Common\LicenseBOM\LicenseBOM;
 
 /**
  * Deploys a build to a specific host.
@@ -326,8 +328,10 @@ class Deploy extends AbstractActionDeferred implements iCanBeCalledFromCLI, iCre
     }
 
     /**
-     * Shares project license settings across hosts while retaining host-specific overrides.
-     * 
+     * Shares project defaults while matching host overrides by package identity and license name.
+     *
+     * Numeric array merging could otherwise attach one license's terms to another license.
+     *
      * @param array $deployConfig
      * @param string|null $projectLicensesJson
      * @return array
@@ -340,7 +344,33 @@ class Deploy extends AbstractActionDeferred implements iCanBeCalledFromCLI, iCre
 
         $projectConfig = UxonObject::fromJson($projectLicensesJson);
         $hostConfig = new UxonObject($deployConfig['default_app_config']['Licenses.config.json'] ?? []);
-        $deployConfig['default_app_config']['Licenses.config.json'] = $projectConfig->extend($hostConfig)->toArray();
+        // Match packages and licenses by identity, not numeric UXON array positions; host values override project defaults.
+        $merged = new LicenseBOM();
+        foreach ([$projectConfig, $hostConfig] as $config) {
+            $data = $config->toArray();
+            $inventory = new LicenseBOM();
+            $inventory->setLicenses($data['licenses'] ?? []);
+            foreach ($data['packages'] ?? (isset($data[0]) ? $data : []) as $package) {
+                $configuredPackage = new BOMPackage();
+                $configuredPackage->importUxonObject(new UxonObject(BOMPackage::normalizeArray($package)));
+                $inventory->addPackage($configuredPackage);
+            }
+            $merged->merge($inventory);
+        }
+        // Project merged runtime state back to configuration, excluding evidence fields and computed package URNs.
+        $mergedConfig = $merged->toBOM();
+        $licenseConfiguration = static function (array $license) : array {
+            return array_intersect_key($license, ['name' => true, 'text' => true, 'link' => true, 'file' => true]);
+        };
+        if (isset($mergedConfig['licenses'])) {
+            $mergedConfig['licenses'] = array_map($licenseConfiguration, $mergedConfig['licenses']);
+        }
+        foreach ($mergedConfig['packages'] as $index => $package) {
+            unset($package['urn']);
+            $package['licenses'] = array_map($licenseConfiguration, $package['licenses']);
+            $mergedConfig['packages'][$index] = $package;
+        }
+        $deployConfig['default_app_config']['Licenses.config.json'] = $mergedConfig;
 
         return $deployConfig;
     }
