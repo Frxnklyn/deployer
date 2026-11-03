@@ -6,7 +6,7 @@ This document states what Deployer v3 must achieve. It is derived from the [Depl
 
 - A checked decision in the roadmap records a resolved decision; it does not prove that the corresponding code, migration, or editor exists.
 - The roadmap's recipe migration checklist is explicitly unverified until each v3 behavior and its data migration are verified.
-- No v3 pipeline implementation was verified in this source review. The current [Build action](../../Actions/Build.php), [Deploy action](../../Actions/Deploy.php), and [recipe selectors](../../DataTypes/BuildRecipeDataType.php) remain recipe-oriented.
+- The initial source review found no v3 implementation. A first contract subset is now present and tested (see REQ-003 and REQ-008 coverage); no executable production pipeline has been implemented. The current [Build action](../../Actions/Build.php), [Deploy action](../../Actions/Deploy.php), and [recipe selectors](../../DataTypes/BuildRecipeDataType.php) remain recipe-oriented.
 - `NOT_VERIFIED`, `PARTIAL`, `VERIFIED`, and `BLOCKED` in the coverage table refer to evidence for the requirement, not completion of a related task.
 
 ## Goals and scope
@@ -221,12 +221,12 @@ Verification status is initialized conservatively. `NOT_VERIFIED` means this ext
 |---|---|---|---|---|
 | REQ-001 | Purpose-specific pipeline templates | MUST | No v3 prototype/editor evidence found; verify supported selection and absence of arbitrary stage editing. | NOT_VERIFIED |
 | REQ-002 | Discovery, factory, selectors, and editors | MUST | No v3 selector/factory/editor evidence found; exact discovery/serialization contract pending. | BLOCKED |
-| REQ-003 | Generator, task/result, and action ownership contract | MUST | Legacy actions use CLI recipes and status heuristics; no v3 contract implementation found. | NOT_VERIFIED |
+| REQ-003 | Generator, task/result, and action ownership contract | MUST | [Pipeline contract tests](../../Tests/PHPUnit/Unit/PipelineContractsTest.php): PHP 8.3.36 / PHPUnit 10.5.63, 4 tests and 56 assertions pass. Verifies declared UXON inheritance, unchanged common run signature, status results, and generator-consumer mechanics using a mock. Production task rejection, text-only output enforcement, action persistence, and intermediate reporting remain unimplemented/unverified. | PARTIAL |
 | REQ-004 | Build variant pipeline ownership | MUST | Current model/action are recipe-oriented; no v3 selector/config fields verified. | NOT_VERIFIED |
 | REQ-005 | Composer build parity and safety | MUST | Legacy Composer recipe exists; v3 pipeline and acceptance tests not verified. | NOT_VERIFIED |
 | REQ-006 | Asset-cache workaround setting and migration | MUST for affected variants | Legacy recipe enum exists; absent-lock behavior pending and migration not verified. | BLOCKED |
 | REQ-007 | Host pipeline ownership and setter boundary | MUST | Current project-level recipe/config model is legacy; v3 host ownership not verified. | NOT_VERIFIED |
-| REQ-008 | Release/configuration task distinction | MUST | No v3 deployment task interfaces verified. | NOT_VERIFIED |
+| REQ-008 | Release/configuration task distinction | MUST | [DeploymentTaskInterface](../../Interfaces/Pipelines/DeploymentTaskInterface.php) is artifact-independent; [contract tests](../../Tests/PHPUnit/Unit/PipelineContractsTest.php) verify this common boundary. Specialized release/configuration task inputs and executable workflows remain unimplemented/unverified. | PARTIAL |
 | REQ-009 | Retained deployment workflow prototypes | MUST | Legacy recipes exist; no v3 prototypes verified; polling/Azure design remains ambiguous. | BLOCKED |
 | REQ-010 | Shared self-extractor behavior and configuration | MUST | Legacy installer is present; v3 parity and validated path behavior not verified. | NOT_VERIFIED |
 | REQ-011 | Cross-platform execution and standalone bootstrap | MUST | Current recipe includes shell/platform assumptions; v3 OS/bootstrap contract pending. | BLOCKED |
