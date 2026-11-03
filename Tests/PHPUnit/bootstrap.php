@@ -16,3 +16,7 @@ foreach ($autoloadCandidates as $autoload) {
 if (! class_exists(\PHPUnit\Framework\TestCase::class)) {
     throw new \RuntimeException('Composer autoloader with PHPUnit could not be found.');
 }
+
+$packageLoader = new \Composer\Autoload\ClassLoader();
+$packageLoader->addPsr4('axenox\\Deployer\\', $packageRoot);
+$packageLoader->register(true);
