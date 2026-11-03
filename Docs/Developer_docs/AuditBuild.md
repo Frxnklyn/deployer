@@ -65,8 +65,10 @@ license selections and private-package classifications therefore participate in 
 saved build's license checks. Configuration uses strict UXON import, not the result-input
 boundary: it cannot supply license provenance or `text_available` evidence.
 
-After applying project overrides, local declaration recovery and file enrichment run
-while the vendor folder still exists. Relative license files resolve against the built
+Local declaration recovery and file enrichment always run while the vendor folder still
+exists, after applying any project overrides. Project license configuration is optional:
+an existing inventory is enriched even when that configuration is absent or blank.
+Relative license files resolve against the built
 or cloned installation, not an unrelated directory on the audit machine. Later audits
 use the saved snapshot; changing project settings does not rewrite historical builds.
 Host-specific overrides remain deployment-time configuration. Custom recipes can pass

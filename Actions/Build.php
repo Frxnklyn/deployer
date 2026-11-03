@@ -280,7 +280,8 @@ class Build extends AbstractActionDeferred implements iCanBeCalledFromCLI, iCrea
      * Captures build dependencies before recipes remove the built vendor folder.
      *
      * Project configuration overrides inventory defaults before local enrichment and compaction.
-     * Existing inventories without project overrides are reused without manifest generation.
+     * Existing inventories are reused without rebuilding the package list, but local license
+     * discovery always runs, including when optional project configuration is absent.
      * No remote queries or configured installation Workbench are required.
      *
      * @param string $projectPath
@@ -297,9 +298,6 @@ class Build extends AbstractActionDeferred implements iCanBeCalledFromCLI, iCrea
                 throw new InvalidArgumentException('Build package BOM must contain a packages array.');
             }
             $bom = new LicenseBOM($data);
-            if ($projectLicensesJson === null || trim($projectLicensesJson) === '') {
-                return $bom;
-            }
         } else {
             $bom = new LicenseBOM();
             $bom->merge(new ComposerBOM($projectPath . DIRECTORY_SEPARATOR . 'composer.lock'));
