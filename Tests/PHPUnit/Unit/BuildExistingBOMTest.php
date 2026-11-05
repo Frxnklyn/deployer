@@ -2,7 +2,7 @@
 namespace axenox\Deployer\Tests\PHPUnit\Unit;
 
 use axenox\Deployer\Actions\Build;
-use axenox\PackageManager\Common\LicenseBOM\Format\JsonBOM;
+use axenox\Deployer\Common\Pipelines\ComposerBuildBom;
 use exface\Core\CommonLogic\Workbench;
 use exface\Core\Factories\ActionFactory;
 use PHPUnit\Framework\TestCase;
@@ -35,12 +35,15 @@ class BuildExistingBOMTest extends TestCase
             ], JSON_THROW_ON_ERROR);
             ActionFactory::createFromString(new Workbench(), Build::class);
             $bom = Build::buildRecipeBom($projectPath, $configuration);
-            $package = $bom->getPackages()['private:example/library:1.2.3'];
+            $package = $bom->getPackages()['example/library'];
+            self::assertSame('1.2.3', $package->getVersion());
+            self::assertSame('private', $package->toComposerArray()['ecosystem']);
             self::assertSame('Commercial', $package->getLicenseUsed());
-            self::assertSame('Project terms', $package->getLicenses()['Commercial']->getText());
+            self::assertSame('Project terms', $package->getLicenseText('Commercial'));
             self::assertTrue($package->hasLicenseText());
             self::assertCount(1, $bom->getPackages());
-            $snapshot = json_decode((new JsonBOM($bom))->setFormat('minimal')->buildJson(), true, 512, JSON_THROW_ON_ERROR);
+            $snapshot = json_decode(ComposerBuildBom::buildSnapshot($bom), true, 512, JSON_THROW_ON_ERROR);
+            self::assertSame('private:example/library:1.2.3', $snapshot['packages'][0]['urn']);
             self::assertSame('Commercial', $snapshot['packages'][0]['license_used']);
             self::assertSame('private', $snapshot['packages'][0]['ecosystem']);
             self::assertTrue($snapshot['packages'][0]['licenses'][1]['text_available']);
@@ -71,8 +74,12 @@ class BuildExistingBOMTest extends TestCase
             file_put_contents($licensePath, $source);
             ActionFactory::createFromString(new Workbench(), Build::class);
             $bom = Build::buildRecipeBom($projectPath);
-            self::assertTrue($bom->getPackages()['composer:example/library:']->hasLicenseText());
-            $snapshot = json_decode((new JsonBOM($bom))->setFormat('minimal')->buildJson(), true, 512, JSON_THROW_ON_ERROR);
+            $package = $bom->getPackages()['example/library'];
+            self::assertSame('MIT', $package->getLicenseUsed());
+            self::assertTrue($package->toComposerArray()['licenses'][0]['text_available']);
+            self::assertNull($package->getLicenseText('MIT'));
+            $snapshot = json_decode(ComposerBuildBom::buildSnapshot($bom), true, 512, JSON_THROW_ON_ERROR);
+            self::assertSame('composer:example/library:', $snapshot['packages'][0]['urn']);
             self::assertSame([['name' => 'MIT', 'source' => 'spdx', 'text_available' => true]], $snapshot['packages'][0]['licenses']);
             self::assertSame($source, file_get_contents($licensePath));
         } finally {
@@ -103,7 +110,7 @@ class BuildExistingBOMTest extends TestCase
             ActionFactory::createFromString(new Workbench(), Build::class);
 
             $bom = Build::buildRecipeBom($projectPath);
-            $snapshot = json_decode((new JsonBOM($bom))->setFormat('minimal')->buildJson(), true, 512, JSON_THROW_ON_ERROR);
+            $snapshot = json_decode(ComposerBuildBom::buildSnapshot($bom), true, 512, JSON_THROW_ON_ERROR);
 
             self::assertCount(1, $snapshot['packages']);
             self::assertSame('example/library', $snapshot['packages'][0]['name']);
