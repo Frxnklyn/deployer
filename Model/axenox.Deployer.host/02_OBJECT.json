@@ -146,7 +146,7 @@
                                                 "filters": [
                                                     {
                                                         "attribute_alias": "CONNECTOR",
-                                                        "value": "axenox/deployer/DataConnectors/DeployerSshConnector.php",
+                                                        "value": "exface/urldataconnector/DataConnectors/HttpConnector.php",
                                                         "comparator": "=="
                                                     }
                                                 ]
@@ -155,7 +155,9 @@
                                                 "attribute_alias": "path_abs_to_api"
                                             },
                                             {
-                                                "attribute_alias": "path_rel_to_releases"
+                                                "attribute_alias": "path_rel_to_releases",
+                                                "disabled": true,
+                                                "hint": "Legacy migration evidence only. Native v3 ignores this removed relative-path setting."
                                             },
                                             {
                                                 "attribute_alias": "operating_system"
@@ -171,7 +173,18 @@
                                         "width": "max",
                                         "widgets": [
                                             {
+                                                "attribute_alias": "prototype_file",
+                                                "widget_type": "InputComboTable",
+                                                "id": "deployment_pipeline_selector",
+                                                "required": false,
+                                                "hint": "Select a native deployment pipeline. Packages include the standalone native installer; publication/preparation alone is not installation success. Review the migration report and target prerequisites before deployment."
+                                            },
+                                            {
                                                 "attribute_alias": "deploy_config",
+                                                "widget_type": "InputUxon",
+                                                "schema": "generic",
+                                                "id": "deployment_pipeline_config",
+                                                "root_prototype": "=deployment_pipeline_selector",
                                                 "hide_caption": true,
                                                 "width": "max",
                                                 "height": 14
@@ -238,7 +251,7 @@
                                 "object_alias": "exface.Core.CONNECTION",
                                 "rows": [
                                     {
-                                        "CONNECTOR": "axenox/deployer/DataConnectors/DeployerSshConnector.php"
+                                        "CONNECTOR": "exface/urldataconnector/DataConnectors/HttpConnector.php"
                                     }
                                 ]
                             }

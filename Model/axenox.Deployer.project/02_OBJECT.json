@@ -134,63 +134,36 @@
                                         ]
                                     },
                                     {
-                                        "caption": "Build",
+                                        "caption": "Legacy build selection (migration evidence)",
                                         "widget_type": "WidgetGroup",
                                         "widgets": [
                                             {
                                                 "attribute_alias": "build_recipe",
-                                                "id": "build_recipe_selector"
+                                                "id": "build_recipe_selector",
+                                                "widget_type": "Input",
+                                                "disabled": true,
+                                                "hint": "No longer executed. Configure the Build Pipeline on each build variant."
                                             },
                                             {
                                                 "attribute_alias": "build_recipe_custom_path",
-                                                "disable_condition": {
-                                                    "widget_link": "build_recipe_selector",
-                                                    "comparator": "!==",
-                                                    "value": "CustomBuild"
-                                                },
-                                                "required_if": {
-                                                    "operator": "AND",
-                                                    "conditions": [
-                                                        {
-                                                            "value_left": "=build_recipe_selector",
-                                                            "comparator": "==",
-                                                            "value_right": "CustomBuild"
-                                                        }
-                                                    ]
-                                                }
+                                                "disabled": true
                                             }
                                         ]
                                     },
                                     {
-                                        "caption": "Deployment",
+                                        "caption": "Legacy deployment selection (migration evidence)",
                                         "widget_type": "WidgetGroup",
                                         "widgets": [
                                             {
                                                 "attribute_alias": "deployment_recipe",
-                                                "id": "deployment_recipe_selector"
+                                                "id": "deployment_recipe_selector",
+                                                "widget_type": "Input",
+                                                "disabled": true,
+                                                "hint": "No longer executed. Configure the Deployment Pipeline on each host."
                                             },
                                             {
                                                 "attribute_alias": "deployment_recipe_custom_path",
-                                                "disabled_if": {
-                                                    "operator": "AND",
-                                                    "conditions": [
-                                                        {
-                                                            "value_left": "=deployment_recipe_selector",
-                                                            "comparator": "!==",
-                                                            "value_right": "CustomDeploy"
-                                                        }
-                                                    ]
-                                                },
-                                                "required_if": {
-                                                    "operator": "AND",
-                                                    "conditions": [
-                                                        {
-                                                            "value_left": "=deployment_recipe_selector",
-                                                            "comparator": "==",
-                                                            "value_right": "CustomDeploy"
-                                                        }
-                                                    ]
-                                                }
+                                                "disabled": true
                                             }
                                         ]
                                     },

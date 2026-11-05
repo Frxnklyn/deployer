@@ -73,15 +73,16 @@
             "UID": "0x11e9f644a3971508b2ce0205857feb80",
             "APP": "0x11e9e072016ba0dd8afae4b318306b9a",
             "NAME": "Deployment Recipe",
-            "PROTOTYPE": "axenox/deployer/DataTypes/DeploymentRecipeDataType.php",
+            "PROTOTYPE": "exface/core/DataTypes/StringDataType.php",
             "CONFIG_UXON": null,
             "VALIDATION_ERROR": null,
             "DEFAULT_DISPLAY_UXON": null,
             "DEFAULT_EDITOR_UXON": {
-                "widget_type": "InputSelect"
+                "widget_type": "Input",
+                "disabled": true
             },
             "ALIAS": "DeploymentRecipe",
-            "SHORT_DESCRIPTION": "Built-in type of deployment recipies"
+            "SHORT_DESCRIPTION": "Legacy project recipe value for migration evidence; configure pipelines on hosts."
         },
         {
             "_EXPORT_SUMMARY": "Build Recipe",
@@ -92,15 +93,16 @@
             "UID": "0x11e9f6453ce34b8cb2ce0205857feb80",
             "APP": "0x11e9e072016ba0dd8afae4b318306b9a",
             "NAME": "Build Recipe",
-            "PROTOTYPE": "axenox/deployer/DataTypes/BuildRecipeDataType.php",
+            "PROTOTYPE": "exface/core/DataTypes/StringDataType.php",
             "CONFIG_UXON": null,
             "VALIDATION_ERROR": null,
             "DEFAULT_DISPLAY_UXON": null,
             "DEFAULT_EDITOR_UXON": {
-                "widget_type": "InputSelect"
+                "widget_type": "Input",
+                "disabled": true
             },
             "ALIAS": "BuildRecipe",
-            "SHORT_DESCRIPTION": "Built-in type of build recipies"
+            "SHORT_DESCRIPTION": "Legacy project recipe value for migration evidence; configure pipelines on build variants."
         },
         {
             "_EXPORT_SUMMARY": "UXON Deployment Configuration",
@@ -113,7 +115,7 @@
             "NAME": "UXON Deployment Configuration",
             "PROTOTYPE": "exface/core/DataTypes/JsonDataType.php",
             "CONFIG_UXON": {
-                "schema": "\\axenox\\Deployer\\Uxon\\DeploymentConfigSchema"
+                "schema": "generic"
             },
             "VALIDATION_ERROR": null,
             "DEFAULT_DISPLAY_UXON": null,

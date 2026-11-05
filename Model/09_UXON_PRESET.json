@@ -61,25 +61,18 @@
     ],
     "rows": [
         {
-            "_EXPORT_SUMMARY": "Deployer SSH connection",
+            "_EXPORT_SUMMARY": "Native updater HTTPS connection",
             "CREATED_ON": "2019-11-12 11:24:24",
             "MODIFIED_ON": "2019-11-12 11:24:24",
             "CREATED_BY_USER": "0x11e9ea7fa76e99698f24847beb3e34e8",
             "MODIFIED_BY_USER": "0x11e9ea7fa76e99698f24847beb3e34e8",
             "UID": "0x11ea053698d4b6ad85d7847beb3e34e8",
             "APP": "0x11e9e072016ba0dd8afae4b318306b9a",
-            "NAME": "Deployer SSH connection",
-            "DESCRIPTION": "Place the entire contents of the SSH key file (typically id_rsa) in ssh_private_key.",
-            "PROTOTYPE": "axenox/deployer/DataConnectors/DeployerSshConnector.php",
+            "NAME": "Native updater HTTPS connection",
+            "DESCRIPTION": "Installation base URL for native UpdaterPush. Configure a dedicated account through the connection authentication settings; TLS verification is mandatory.",
+            "PROTOTYPE": "exface/urldataconnector/DataConnectors/HttpConnector.php",
             "UXON": {
-                "host_name": "",
-                "user": "",
-                "ssh_private_key": [
-                    "// Multiline text delimited by `\n`",
-                    "-----BEGIN RSA PRIVATE KEY-----",
-                    "...",
-                    "-----END RSA PRIVATE KEY-----"
-                ]
+                "url": "https://example.invalid/"
             },
             "WRAP_PATH": "",
             "UXON_SCHEMA": "connection",
