@@ -3,8 +3,10 @@
 - Configure the build-server
 	- [Windows Server](Build_server_setup/Windows_Server_as_build_server.md)
 - Configure a host (target) server
-	- Manual upload or push/pull deployment (TODO)
-   	- [SSH-upload to Windows Server](Client_setup/Windows_Server_host_setup.md)
+	- [Native manual transfer, standalone installation and OTA pull](ManualTransfer.md)
+	- [Native updater push and target opt-in](UpdaterPush.md)
+	- [Polling and Azure manual-transfer guidance](PipelineMigration.md)
+	- SSH deployment is removed in v3; existing SSH hosts require an explicit supported replacement.
 - [Troubleshooting builds](Troubleshooting_build.md)
 - [Auditing saved builds](AuditBuild.md)
-
+- [Native pipeline migration and cutover](PipelineMigration.md)
