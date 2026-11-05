@@ -330,7 +330,7 @@
             "RELATED_OBJ_ATTR": null,
             "SHORT_DESCRIPTION": "",
             "DATA_ADDRESS_PROPS": null,
-            "DEFAULT_VALUE": "",
+            "DEFAULT_VALUE": "NativePipeline",
             "FIXED_VALUE": "",
             "CUSTOM_DATA_TYPE": null
         },
@@ -426,7 +426,7 @@
             "RELATED_OBJ_ATTR": null,
             "SHORT_DESCRIPTION": "",
             "DATA_ADDRESS_PROPS": null,
-            "DEFAULT_VALUE": "",
+            "DEFAULT_VALUE": "NativePipeline",
             "FIXED_VALUE": "",
             "CUSTOM_DATA_TYPE": null
         },

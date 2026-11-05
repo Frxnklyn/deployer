@@ -87,7 +87,7 @@
         {
             "_EXPORT_SUMMARY": "Build Variant [axenox.Deployer.build_variant]",
             "CREATED_ON": "2021-03-29 13:33:56",
-            "MODIFIED_ON": "2021-04-12 14:27:19",
+            "MODIFIED_ON": "2026-11-04 10:06:00",
             "CREATED_BY_USER": "0x11e8fe1c902c8ebea23ee4b318306b9a",
             "MODIFIED_BY_USER": "0x31000000000000000000000000000000",
             "UID": "0x11ebb908a5c82562b9088c04ba002958",
@@ -107,6 +107,38 @@
                 "object_alias": "axenox.Deployer.build_variant",
                 "tabs": [
                     {
+                        "caption": "Build Pipeline (v3)",
+                        "widgets": [
+                            {
+                                "widget_type": "Markdown",
+                                "value": "### Native build pipeline\nSelect a build pipeline and review its configuration. Empty or invalid selections fail explicitly; legacy recipes are no longer executed. For ComposerInstall, configure composer_json and composer_auth below. The application SQL migration converts eligible legacy variants and reports conflicts; it never replaces existing selections or designer edits. Changing the pipeline keeps the configuration below; review it before saving.",
+                                "width": "max"
+                            },
+                            {
+                                "attribute_alias": "name"
+                            },
+                            {
+                                "attribute_alias": "description",
+                                "height": 3
+                            },
+                            {
+                                "attribute_alias": "project"
+                            },
+                            {
+                                "attribute_alias": "prototype_file",
+                                "id": "build_pipeline_selector",
+                                "width": "max"
+                            },
+                            {
+                                "attribute_alias": "config_uxon",
+                                "widget_type": "InputUxon",
+                                "root_prototype": "=build_pipeline_selector",
+                                "width": "max",
+                                "height": 12
+                            }
+                        ]
+                    },
+                    {
                         "caption": "Composer.json",
                         "widgets": [
                             {
@@ -116,14 +148,8 @@
                                         "height": 3,
                                         "widgets": [
                                             {
-                                                "attribute_alias": "name"
-                                            },
-                                            {
-                                                "attribute_alias": "description",
-                                                "height": 3
-                                            },
-                                            {
-                                                "attribute_alias": "project"
+                                                "widget_type": "Markdown",
+                                                "value": "Legacy Composer settings apply only when no build pipeline is selected."
                                             }
                                         ]
                                     },
