@@ -49,45 +49,43 @@ the current installation instead.
 
 ## Package Snapshot
 
-The Composer recipe reuses the built project's `vendor/licenses.json` when present.
-Only when that file is absent does it generate the inventory from `composer.lock`,
-the packages' `includes.json` files and optional `config/Licenses.config.json` before
-removing its temporary vendor folder. The local-clone recipe uses the same precedence
-for the local installation included in its archive. Both recipes stage the inventory
-as `package_bom.json` beside the project's `composer.lock`. Existing inventories are
-read without modification; their presence bypasses manifest generation.
+Legacy recipes (`Recipes/Build.php`, run through `vendor/bin/dep`) and the native
+Composer build prototype (`Pipelines/Build/ComposerInstall.php`) share one capture helper,
+`Common/Pipelines/ComposerBuildBom`, built on the installed PackageManager BOM API
+(`BOMPackage` array constructor, `LicenseBOM::setLicenses()`/`addPackage()` and the
+local enrichers). `Build::buildRecipeBom()` delegates to `ComposerBuildBom::captureInstallation()`;
+the native prototype additionally applies its archive entry policy and requires `composer.lock`.
+A legacy trace ending in `Recipes\Build.php` and `Build::buildRecipeBom()` is therefore the
+legacy recipe path, not a selected native pipeline.
 
-At build start, Build captures the project's `licenses_config` and supplies it to both
-recipes as `project_licenses_config`. When present, this configuration is merged into
-the inventory even if `vendor/licenses.json` already exists. Packages and licenses match
-by identity and name, with project values overriding inventory defaults. Shared terms,
-license selections and private-package classifications therefore participate in the
-saved build's license checks. Configuration uses strict UXON import, not the result-input
-boundary: it cannot supply license provenance or `text_available` evidence.
+While the vendor folder still exists, the capture merges, in order: an existing
+`vendor/licenses.json`, every locked production and development package, each installed
+package's `includes.json`, optional `config/Licenses.config.json` and the project's
+`licenses_config` captured at build start (`project_licenses_config` in recipes; custom
+recipes can pass `get('project_licenses_config', null)` as the second argument). Locked
+names/versions/sources are then re-applied, so configuration can select licenses or terms
+but cannot change installed versions. Local `package.json` declarations, license files and
+texts are enriched afterwards, including when configuration is absent or blank.
+Configuration may be a package list or an object with `packages` and shared `licenses`,
+either keyed by license name or a list of named definitions. Legacy `license_text`/
+`license_file` properties and named definitions with `text`/`file` are supported.
+Configured files are resolved relative to `vendor`, even for packages without an installed
+directory; a missing selected file cannot borrow a different license's generic terms.
+Alternative license declarations and terms survive selection overrides. Result-only
+`source` and `text_available` properties are rejected in project configuration; recorded
+inventory evidence is preserved without inventing text.
+Unnamed packages, invalid JSON or a project without a vendor folder and
+either `composer.lock` or `vendor/licenses.json` fail the build rather than producing an empty BOM.
+No remote license queries or installation Workbench are needed. Later audits use the saved
+snapshot; changing project settings does not rewrite historical builds. Host-specific overrides
+remain deployment-time configuration.
 
-Local declaration recovery and file enrichment always run while the vendor folder still
-exists, after applying any project overrides. Project license configuration is optional:
-an existing inventory is enriched even when that configuration is absent or blank.
-Relative license files resolve against the built
-or cloned installation, not an unrelated directory on the audit machine. Later audits
-use the saved snapshot; changing project settings does not rewrite historical builds.
-Host-specific overrides remain deployment-time configuration. Custom recipes can pass
-`get('project_licenses_config', null)` as the second argument to `Build::buildRecipeBom()`
-to apply the same build-time configuration.
-
-Fallback generation does not depend on Composer installation hooks,
-database installation or remote license-text discovery. It recovers missing declarations
-from installed `package.json` manifests, then reads local license files before vendor cleanup.
-Native npm/Bower names are also checked under Asset Packagist installation paths. Bundled
-packages without a standalone directory remain in the inventory without filesystem warnings.
-Previously, the fallback collected declarations but did not discover installed terms, causing
-most packages to be marked as missing text even when their license files were present.
-Also, a missing generated
-license file silently left `package_bom` empty even when the build succeeded.
-Bundled dependencies retain the owning Composer package's locked URN.
-
-After the recipe finishes, the Build action reads the staged inventory and uses
-JsonBOM's `minimal` format for the database value:
+Both recipes stage the full inventory as `package_bom.json` beside the project's
+`composer.lock`. After the recipe finishes, the Build action rebuilds it with
+`ComposerBuildBom::fromInventory()` (the installed `LicenseBOM` has no data constructor) and
+stores a compact saved-build snapshot through `ComposerBuildBom::buildSnapshot()`.
+This preserves the legacy saved-build shape independently of the installed JsonBOM's
+identity-only `minimal` format (which the native prototype uses):
 ```json
 {
     "packages": [
@@ -96,6 +94,7 @@ JsonBOM's `minimal` format for the database value:
             "version": "v1.2.3",
             "ecosystem": "composer",
             "urn": "composer:example/library:v1.2.3",
+            "source": {"type": "git", "reference": "abc123"},
             "license_used": "MIT",
             "licenses": [{"name": "MIT", "source": "local", "text_available": true}]
         },
@@ -105,39 +104,20 @@ JsonBOM's `minimal` format for the database value:
             "ecosystem": "npm",
             "urn": "npm:example-widget:2.0.0",
             "bundled_in": "composer:example/library:v1.2.3",
-            "license_used": "MIT",
-            "licenses": [{"name": "MIT", "text_available": false}]
+            "licenses": []
         }
     ]
 }
 ```
-Ecosystems are lowercase and Composer asset aliases become native npm/Bower names;
-versions remain unchanged. Multiple installed versions have separate URNs. Bundle ownership
-is retained as `bundled_in`, not inferred from a versionless supplement.
-Git sources also retain `source.type` and `source.reference`,
-allowing OSV to query locked commits from the BOM alone, including Bower packages.
-Repository URLs, license texts and other unrelated metadata are omitted.
-License declarations and effective selections are retained. Each named license object records
-optional `source` provenance separately from `text_available`, as described in
-[PackageManager's JSON format reference](../../../packagemanager/Docs/License_management/Generated_license_BOM.md#json-export-format).
-Shared definitions in the staged full inventory are resolved before compaction; their
-source evidence survives, but their license text is not stored in the compact value.
-Unversioned packages remain in the inventory without an invented version.
-
-Legacy staged BOMs remain readable and are converted to the canonical shape when archived.
-Project and host license configuration also merge through the BOM model: package identities
-and license names, rather than array positions, determine matching. Host fields take precedence
-while omitted project defaults remain available. This supports both legacy maps and new arrays;
-no database migration or historical backfill is performed.
-
-Build and audit readers restore generated results through array-based BOM constructors, preserving
-recorded license provenance and availability. Runtime results serialize through `toBOM()`, not configuration
-export. Project and host UXON cannot set these evidence fields: the merged deployment configuration
-contains only named license configuration (`name`, `text`, `link`, `file`), not `source`,
-`text_available` or computed package URNs. A configured file reference is resolved only after
-an enricher successfully reads its terms.
-Configuration readers create an empty prototype and call `importUxonObject()` separately, retaining
-strict rejection of result-only fields even when merging legacy package definitions.
+Composer asset aliases become native npm/Bower names; versions remain unchanged and
+unversioned packages are not given an invented version. Git sources retain `source.type`
+and `source.reference` so OSV can query locked commits. URNs retain an empty version
+segment for unversioned packages, and bundled packages retain their owner's locked URN.
+License selections and per-license availability/source evidence remain in the compact
+value; inline terms and repository URLs are omitted. The installed PackageManager's
+LicenseScanner requires the full inventory with actual `license_text`, not merely
+`text_available` evidence. Availability flags must not be substituted with fabricated
+terms to make a license audit pass.
 
 Like `composer.lock`, the staged BOM is read and saved by Build, not by the recipe.
 Build saves the converted JSON in `package_bom` and removes the staged file during
@@ -163,12 +143,24 @@ The advisory mapping preserves `level`, `name`, `type`, `package`, `ecosystem`, 
 `description`, `remediation`, `versions_affected`, `version_fixed` and `public_id`.
 Audit's deterministic `ID` is not used as a database UID. Each link's `version`
 stores the finding's `VERSION_INSTALLED`, including an empty value when unknown.
-Its required `bom_urn` stores `BOM_URN`: the normalized `ecosystem:package:version`
-identity, with an empty final segment for unknown versions. Version spelling and case
+Its required `bom_urn` stores a supplied nonempty `BOM_URN`. Current PackageManager
+Audit output does not include that column, so the action derives the same normalized
+`ecosystem:package:version` identity from `ECOSYSTEM`, `PACKAGE` and
+`VERSION_INSTALLED` using the shared `ComposerBuildBom::packageUrn()` helper.
+The final segment remains empty for unknown versions. Version spelling and case
 are preserved, so unknown, known and case-distinct versions retain separate assignments.
 Installed versions are build-specific and are not copied to shared advisories.
 Scanner provenance is not persisted. A zero-finding audit creates no records. Scanner hints remain visible:
 zero findings alone do not prove that all scanners completed.
+
+PHP HTTP scanners share a verified Windows-native certificate trust policy when
+no administrator CA configuration exists. See [audit certificate troubleshooting](../Troubleshooting_build.md#post-build-audit-certificate-errors-on-windows).
+The saved native build `4.1.1+20261105152529` was re-audited on 2026-11-05:
+205 advisory links persisted and were read back with valid nonempty BOM identities;
+build status stayed 99. npm and OSV completed, while Composer audit was skipped
+because a suitable Composer executable was not on PATH. Trivy was not applicable.
+This verifies transport and persistence, not license completeness or a clean
+security assessment. The original build archive and log were not rewritten.
 
 `ecosystem` is required and uses `axenox.PackageManager.PackageEcosystem`.
 The migration creates a non-nullable column with a `composer` default and
