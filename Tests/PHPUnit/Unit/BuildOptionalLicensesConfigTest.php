@@ -64,6 +64,7 @@ class BuildOptionalLicensesConfigTest extends TestCase
             self::assertSame(['example/library', 'library'], array_column($packages, 'name'));
             self::assertSame(['composer', 'npm'], array_column($packages, 'ecosystem'));
             foreach ($packages as $package) {
+                self::assertSame($package['ecosystem'] . ':' . $package['name'] . ':' . $package['version'], $package['urn']);
                 self::assertSame('MIT', $package['license_used']);
                 self::assertCount(1, $package['licenses']);
                 self::assertSame('MIT', $package['licenses'][0]['name']);
@@ -76,7 +77,7 @@ class BuildOptionalLicensesConfigTest extends TestCase
             self::assertSame($source, file_get_contents($inventoryPath));
 
             $task = new GenericTask($workbench);
-            $task->setParameter(Audit::TASK_PARAM_SBOM, $snapshot);
+            $task->setParameter(Audit::TASK_PARAM_SBOM, file_get_contents($stagedPath));
             $findings = (new LicenseScanner($workbench))->audit($task);
             self::assertCount($availableTerms ? 0 : 2, $findings);
             foreach ($findings as $finding) {

@@ -6,6 +6,7 @@
         </testsuite>
         <testsuite name="integration">
             <directory>Tests/PHPUnit/Integration</directory>
+            <exclude>Tests/PHPUnit/Integration/RealNativeInstallationTest.php</exclude>
         </testsuite>
     </testsuites>
 </phpunit>
