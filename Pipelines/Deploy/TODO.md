@@ -1,6 +1,6 @@
 # Deployment pipeline TODO
 
-Status: 2026-11-05. Native build and package publication work locally; this is
+Status: 2026-11-06. Native build and package publication work locally; this is
 not full v3 release acceptance. The central task/decision/evidence record is
 [Plan.md](../../Docs/Roadmap/Plan.md), with coverage in
 [Requirements.md](../../Docs/Roadmap/Requirements.md).
@@ -57,7 +57,28 @@ configuration; private internal artifact-directory protection stays enabled.
 
 ## Paired repository
 
-Ship the matching PackageManager native download/callback/root/push and Windows
-audit-trust changes together. Follow-up items are also recorded in
+2026-11-06 update: normal local PackageManager is `1.x-dev` at `eec85af`.
+The integration changes are preserved separately on
+`refactoring/deployer-v3-integration` at `e8cb63b` (also pushed to the fork).
+Build/audit/manual PHX preparation now use unchanged PackageManager APIs, with
+Windows HTTP audit trust handled by Deployer-owned adapters. Automatic native
+SelfUpdate/push remains optional and is not enabled on this baseline.
+The previously published fork `1.x-dev` was not force-rewritten.
+
+Actual normal-baseline verification: web Build `4.2.2+20261106090546`, audit
+with 205 persisted finding identities, and web Deploy status60 succeeded.
+The historical PHX export and private attempt copy both match the persisted
+SHA-256; the temporary workspace was cleaned. No target installation was run.
+Optional native client tests must declare their PackageManager API prerequisites;
+standalone package/root/recovery tests must remain active on the normal branch.
+Final focused checks on this baseline: action/audit/export/client-boundary group
+51 tests / 384 assertions / 12 optional skips; manual/standalone/trust group
+39 tests / 341 assertions / 2 optional skips. Both exit successfully with no
+failures; groups overlap and skipped integrations are not verified passes.
+PHP lint passed for all 14 changed PHP files. Full-suite license-config failures
+listed above remain separate, unresolved acceptance work.
+
+If enabling automatic native OTA/push, ship the matching PackageManager
+download/callback/root/push changes together. Follow-up items are also recorded in
 [PackageManager native deployment TODO](../../../packagemanager/Docs/NativeDeploymentTODO.md)
 when the repositories are checked out side by side.

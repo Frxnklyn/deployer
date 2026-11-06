@@ -19,17 +19,23 @@ or target installation.
 
 ## Post-build audit certificate errors on Windows
 
-The PHP HTTP audit clients use Windows-managed certificate trust through
+Deployer's build-audit HTTP adapters use Windows-managed certificate trust through
 `CURLSSLOPT_NATIVE_CA` when supported by PHP/cURL and no explicit CA configuration
 is present. Certificate and hostname verification remain enabled. This covers
-npm advisories, OSV, registry version checks and Trivy downloads, not Composer's
-separate command-line transport. Explicit PHP CA settings, `SSL_CERT_FILE`,
+npm advisories, OSV and registry version checks, not Composer's
+separate command-line transport or automatic Trivy installation. Explicit PHP CA settings, `SSL_CERT_FILE`,
 `SSL_CERT_DIR` and client `verify` options take precedence.
 
 On other platforms, unsupported PHP/cURL builds, or installations with explicit
 trust configuration, configure a valid trusted CA bundle for the executing SAPI.
 The web console uses web PHP, whose configuration can differ from CLI PHP.
 Do not disable verification or trust an arbitrary downloaded certificate.
+
+The adapters live entirely in Deployer (`Common/Audit`); the normal PackageManager
+scanner implementations and global PHP configuration are unchanged. AuditBuild
+substitutes only the known built-in HTTP selectors while preserving scanner names,
+options and custom selectors. Standalone PackageManager audits and Trivy downloads
+need their own valid PHP CA configuration if Windows trust is not available there.
 
 A saved build can be audited again with `axenox.Deployer.AuditBuild`; its archive
 does not need to be rebuilt. A successful audit means the configured scanners

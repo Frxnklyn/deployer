@@ -4,6 +4,23 @@ This is the working implementation plan for [Deployer v3 requirements](./Require
 
 ## Baseline and progress rules
 
+### PackageManager isolation update (2026-11-06)
+
+At the operator's request, the local PackageManager checkout is back on normal
+`1.x-dev` at `eec85af`, before the three integration commits. Those commits are
+preserved and pushed on `refactoring/deployer-v3-integration` (`e8cb63b`).
+Published fork `1.x-dev` has not been force-rewritten. Historical notes below about
+the paired local runtime describe the earlier test setup, not the current checkout.
+
+Deployer build/audit/manual PHX publication uses unchanged PackageManager APIs.
+Known npm/OSV/registry HTTP scanners are adapted within Deployer for verified
+Windows native trust, preserving configuration/custom selectors and explicit CA
+precedence. No PackageManager source or global PHP ini changes are needed.
+Automatic native SelfUpdate/push still needs the optional integration branch;
+its tests declare the relevant API requirements and are skipped when unavailable,
+not falsely recorded as passing. Trivy installation and standalone PackageManager
+HTTP audits still need normal runtime CA configuration.
+
 ### Commit handoff and remaining acceptance (2026-11-05)
 
 The native source changes are being committed by topic on
@@ -392,6 +409,12 @@ Commit labels such as `DEV task 01` identify implementation increments, not comp
 |---|---|---|---|---|---|---|---|
 | TASK-025 | REQ-009, REQ-014, REQ-018, REQ-019 | **Goal:** Restore the operator-facing builds directory and historical build/host PHX filename without restoring external Deployer. **Complete when:** real web Deploy produces the historical filename, hash/status match, immutable authenticated downloads remain attempt-specific, repeated exports/failed persistence clean up safely, and direct static PHX delivery is blocked. | TASK-022, TASK-024 | [x] | DONE | Human explicitly requested historical destination without restoring dependency, 2026-11-05. Action passes normalized host alias; native publication creates a private staged/atomically replaced builds copy and retains immutable attempt copy for authenticated OTA. Real web Deploy produced builds/4.2.1+20261105154438_My_Local_Dev_One.phx; status60/export/immutable hashes read back and matched d82f14ddab38ef551e85070d44a891ed10f4013ad48694239275368b78779d06. Direct unauthenticated HTTP HEAD returns403. Build directory ACL/TAR delivery unchanged; conflicting existing server rules fail explicitly. Export/action/facade/dependency checks 26 tests / 1050 assertions pass; export/standalone OTA checks 12 / 161 pass (overlapping, not additive); changed PHP lint and whitespace pass. Repeated export retains immutable attempts and old failure cleanup cannot delete a newer different-hash copy; persistence failure removes both owned artifacts. This supersedes earlier notes that only private attempt paths are published to the operator. No target installation or dependency restoration. | Local, uncommitted |
 
+### PackageManager-independent manual workflow
+
+| Task | Requirements | Description | Dependencies | Done | Status | Evidence / Deviation | Commit |
+|---|---|---|---|---|---|---|---|
+| TASK-026 | REQ-005, REQ-009, REQ-014, REQ-019 | **Goal:** Restore normal PackageManager and keep Deployer build/audit/manual PHX preparation working independently. **Complete when:** integration changes are preserved separately, normal checkout is unchanged, verified Windows trust is Deployer-owned with explicit CA precedence, actual web build/audit/publication and persisted artifact hashes pass, and optional-client tests are distinguished from standalone coverage. | TASK-023, TASK-025 | [x] | DONE | Operator requested isolation on 2026-11-06. PackageManager normal 1.x-dev is exactly eec85af with clean worktree; integration branch e8cb63b pushed separately, existing fork main history preserved. Actual web Build 4.2.2+20261106090546 produced status99, 16056520-byte archive and 205 persisted nonempty audit identities. Web Deploy produced status60 and builds/4.2.2+20261106090546_My_Local_Dev_One.phx (16138949 bytes); persisted/export/immutable SHA-256 match 1cc86b0d7c0f23a11817e0b518818b44ce2550b23658295752c1e9468347975a. Temporary workspace removed. Final action/audit/export/optional-client group: 51 tests, 384 assertions, 12 optional skips; final manual/standalone/trust group: 39 tests, 341 assertions, 2 optional skips (overlapping, not additive). No failures in either final run; skipped tests are not passes. PHP lint 14 files and whitespace checks pass. No target installation, external Deployer dependency or global ini changes. | ab901df; documentation committed separately |
+
 ### Phases currently blocked by decisions
 
 Follow-up to TASK-025 (2026-11-05, explicit operator request): automatic
@@ -444,6 +467,7 @@ Start with no approved implementation deviations. Future sessions must add a row
 | ID | Task | Planned behavior | Actual change / proposal | Reason | Approval | Impact |
 |---|---|---|---|---|---|---|
 | DEV-001 | TASK-002 | Additional abstract UXON base with an explicit supported-property list. | Remove the uncommitted base and dependent tests; reuse Core UXON traits in actual prototypes when needed. | Avoid speculative abstraction and duplicate property declarations. Host/UXON separation remains required. | Human requested removal, 2026-11-03. | No production action changed; import/export and host-boundary safeguards still require implementation and tests. |
+| DEV-004 | TASK-026 | Earlier audit trust and automatic native client changes were paired with PackageManager source changes. | Keep normal PackageManager unchanged; Deployer owns adapters for known build-audit HTTP scanners. Preserve automatic client changes on the optional integration branch and explicitly require them only for native SelfUpdate/push. | Operator requested PackageManager isolation while keeping the build/audit/manual workflow usable. | Explicit human request, 2026-11-06. | No TLS bypass, public contract/schema/config change or external deployer dependency. Normal old clients remain rejected by native OTA; manual PHX preparation/execution is independent. Published fork main history is preserved, not rewritten. |
 | DEV-002 | TASK-009, TASK-019 | Preserve legacy local package/vendor configuration and effective retention completely. | Native vendor-name lists and build-present non-executable local assets are supported. Differing PHP, Composer/autoload metadata, absent packages, legacy vendor maps and retention below 2 fail explicitly rather than executing an incompatible runtime. | Standalone installation loads only the newly built runtime; silently overlaying executable/dependency metadata could invalidate it. Current and immediate previous releases remain protected. | Full parity or a compatibility exception requires human approval; no approval is inferred. Dependency removal was explicitly requested, not approval of these parity limits. | Affected hosts require rebuild/config review; REQ-010 and final v3 acceptance remain PARTIAL. No silent settings drop or automatic legacy-layout adoption. |
 | DEV-003 | TASK-010, TASK-012, TASK-021 | Host path_abs_to_api is the authoritative absolute installation root, validated before package preparation. | Pull/polling alone may publish status 60 with host.installation_root_binding=deferred_explicit and no installation_root when the action-supplied path is unusable for the host OS. Execution requires explicit existing absolute --root; paired SelfUpdate forwards optional --native-root for verified native OTA only. Valid bindings cannot be overridden; manual/Azure/push remain strict and automatic push rejects deferred packages. | Restores preparation of an existing local build without guessing/correcting host configuration or weakening target checks. Roadmap requires host-root authority and allows published/awaiting results; it does not explicitly prohibit preparation without usable binding. This is a narrow approved contract exception, not an inferred roadmap amendment. | Explicit human approval, 2026-11-05: restore package publication without valid target root if sensible and not forbidden; no actual target install authorized. | Manifest marker is explicit and fail-closed; old invalid root is not carried as usable data. Root validated independently before target lock/journal/receipt; hashes/private attempt ownership/statuses remain unchanged. No legacy adoption, DB rollback, target configuration changes or broad v3 acceptance. Roadmap unchanged. |
 
