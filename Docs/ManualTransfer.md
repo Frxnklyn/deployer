@@ -1,5 +1,22 @@
 # Native manual transfer and standalone installation
 
+## Normal PackageManager versus optional integration
+
+Build, saved-build audit, native PHX preparation and manual CLI execution do not
+require PackageManager source modifications. The local normal baseline is
+PackageManager `1.x-dev` at `eec85af`, the pre-integration fork/upstream merge.
+Windows audit trust adapters now belong to Deployer, not PackageManager.
+
+The previously added automatic native OTA client, `SelfUpdate --native-root` and
+native push receiver remain available only on PackageManager
+`refactoring/deployer-v3-integration` (tip `e8cb63b`). That branch is preserved
+on the fork and is not the currently checked-out PackageManager runtime.
+The published fork `1.x-dev` history has not been rewritten.
+The existing native facade rejects old clients rather than silently downloading an
+incompatible package. Use the exported PHX and explicit CLI root for the manual
+workflow. Optional integration tests declare their missing API prerequisites and
+are skipped on the normal baseline; they are not reported as passed.
+
 Select `axenox/deployer/Pipelines/Deploy/ManualTransfer.php` on a host's **Deployment Pipeline** field. Missing or invalid selections fail explicitly; neither Build nor Deploy executes legacy recipes. Review the [pipeline migration preflight](PipelineMigration.md), backups, target layout and paired PackageManager prerequisites before installing the updated migrations/model through the normal release process. Tests do not perform live data conversion or target deployment.
 
 ## Build-server setup and commands (operator-run)

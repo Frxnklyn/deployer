@@ -9,6 +9,29 @@ This document states what Deployer v3 must achieve. It is derived from the [Depl
 - Build and Deploy require native selections and report migration instructions when missing. The package no longer requires `deployer/deployer`; shared application lock/vendor contents are unchanged. Coverage below distinguishes local readiness from full v3 acceptance. On 2026-11-05, normal InstallApp converted the local variant/host after a private database/config backup; stored configuration and historical records were checked for preservation (TASK-005). This does not verify a native build or target installation. Real target deployment remains reserved for operator validation.
 - `NOT_VERIFIED`, `PARTIAL`, `VERIFIED`, and `BLOCKED` in the coverage table refer to evidence for the requirement, not completion of a related task.
 
+### Current PackageManager boundary (2026-11-06)
+
+The local PackageManager checkout is normal `1.x-dev` at `eec85af`, without the
+three native integration commits. They are preserved on the separately pushed
+`refactoring/deployer-v3-integration` branch at `e8cb63b`; the previously published
+fork `1.x-dev` has not been rewritten.
+
+Real web-console Build `4.2.2+20261106090546` completed with status99 and 205
+persisted advisory links with nonempty BOM identities. Web Deploy completed
+package publication with status60 and the historical
+`builds/4.2.2+20261106090546_My_Local_Dev_One.phx` export; independent read-back
+matched both exported and immutable artifact hashes
+`1cc86b0d7c0f23a11817e0b518818b44ce2550b23658295752c1e9468347975a`.
+The isolated build workspace was removed. No target installer was executed.
+
+This verifies the local build/audit/manual-transfer slice for REQ-005, REQ-009
+and REQ-019, not complete v3 acceptance. Deployer-owned HTTP scanner adapters
+retain TLS verification and explicit CA precedence without changing PackageManager
+or global PHP settings. Automatic native SelfUpdate/push still needs the optional
+integration branch: historical paired-client evidence below is not evidence that
+those APIs exist on the current normal checkout. Minimal-BOM license completeness,
+external scanner prerequisites and real target/platform acceptance remain open.
+
 ## Goals and scope
 
 Deployer v3 replaces procedural `deployer/deployer` recipes with developer-maintained, UXON-configurable build and deployment pipeline prototypes. Designers choose supported templates; they do not construct arbitrary stages, dependencies, or conditions. The initial families are build and deployment pipelines. The migration covers existing projects, build variants, hosts, and historical build/deployment records, subject to the explicitly approved removal of `path_rel_to_releases` / `relative_deploy_path`.
