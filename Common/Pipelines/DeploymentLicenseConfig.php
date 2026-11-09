@@ -2,30 +2,41 @@
 namespace axenox\Deployer\Common\Pipelines;
 
 use axenox\PackageManager\DataTypes\PackageEcosystemDataType;
+use exface\Core\CommonLogic\UxonObject;
+use exface\Core\Exceptions\UxonMapError;
+use exface\Core\Exceptions\UxonSyntaxError;
 
 /**
- * Merges license configuration as data, without importing runtime BOM evidence.
+ * Combines project-supplied license definitions with host-configured license settings
+ * for deployment-time enrichment. Host settings take precedence for matching values;
+ * runtime BOM evidence is deliberately not imported or treated as configuration.
  *
  * @author Brooklyn Fränzschky
  */
 final class DeploymentLicenseConfig
 {
     /**
-     * Keeps host precedence, matching packages and license definitions by identity.
+     * Merges project package/license entries with the host's configured entries by identity.
+     * Project configuration supplies missing values, while host configuration overrides
+     * matching package fields and license-definition fields. Result-only evidence is rejected.
      *
-     * Uses the Composer-style configuration supported by the installed PackageManager;
-     * does not depend on the legacy Deploy helper's unavailable BOM serialization API.
-     *
-     * @param array $config
-     * @param string|null $projectJson
-     * @return array
+     * @param array $config Host-provided configuration map, including optional license settings.
+     * @param string|null $projectJson Project license configuration JSON to import, if present.
+     * @return array Configuration map with merged license settings; the input map is not mutated.
+     * @throws \InvalidArgumentException If the JSON or supported configuration collections are invalid.
+     * @throws UxonMapError If project entries contain result-only license evidence.
+     * @throws UxonSyntaxError If project JSON cannot be decoded.
      */
     public static function merge(array $config, ?string $projectJson): array
     {
         if ($projectJson === null || trim($projectJson) === '') {
             return $config;
         }
-        $project = json_decode($projectJson, true, 512, JSON_THROW_ON_ERROR);
+        try {
+            $project = json_decode($projectJson, true, 512, JSON_THROW_ON_ERROR);
+        } catch (\JsonException $error) {
+            throw new UxonSyntaxError($error->getMessage(), null, $error, $projectJson);
+        }
         $host = $config['Licenses.config.json'] ?? [];
         if (! is_array($project) || ! is_array($host)) {
             throw new \InvalidArgumentException('License configuration must be an object or package list.');
@@ -58,6 +69,15 @@ final class DeploymentLicenseConfig
             foreach ($entries as $package) {
                 if (! is_array($package) || ! is_string($package['name'] ?? null) || $package['name'] === '') {
                     throw new \InvalidArgumentException('Configured packages require names.');
+                }
+                foreach ($package['licenses'] ?? [] as $license) {
+                    if (is_array($license)
+                        && (array_key_exists('text_available', $license) || array_key_exists('source', $license))) {
+                        throw new UxonMapError(
+                            new UxonObject($package),
+                            'Project license configuration cannot contain result-only license evidence.'
+                        );
+                    }
                 }
                 $key = PackageEcosystemDataType::buildPackageKey($package['name'], $package['ecosystem'] ?? null);
                 $previous = $packages[$key] ?? [];

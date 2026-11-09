@@ -6,7 +6,10 @@ use exface\Core\CommonLogic\Selectors\AbstractSelector;
 use exface\Core\CommonLogic\Selectors\Traits\PrototypeSelectorTrait;
 
 /**
- * Uses Core prototype selection conventions for cross-app pipelines.
+ * Selects an app-owned pipeline prototype using Core selector conventions.
+ *
+ * Accepts the qualified class-name and app-qualified file-path forms handled
+ * by Core's prototype selector trait.
  *
  * @author Brooklyn Fränzschky
  */
@@ -15,7 +18,7 @@ class PipelinePrototypeSelector extends AbstractSelector implements PipelineProt
     use PrototypeSelectorTrait;
 
     /**
-     * Returns the component label used in selector diagnostics.
+     * Returns the human-readable component type used in selector diagnostics.
      *
      * @return string
      */

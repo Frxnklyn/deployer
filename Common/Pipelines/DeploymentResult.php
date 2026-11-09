@@ -4,7 +4,8 @@ namespace axenox\Deployer\Common\Pipelines;
 use axenox\Deployer\Interfaces\Pipelines\PipelineResultInterface;
 
 /**
- * Minimal deployment outcome, independent of release artifacts and transport.
+ * Carries the reached deployment status to the action that owns persistence, without
+ * coupling a generic deployment result to release artifacts or a particular transport.
  *
  * @author Brooklyn Fränzschky
  */
@@ -13,9 +14,9 @@ class DeploymentResult implements PipelineResultInterface
     private int $status;
 
     /**
-     * Captures a reached state without equating preparation with installation.
+     * Stores the status reached by the deployment pipeline; callers decide how it is persisted.
      *
-     * @param int $status
+     * @param int $status Reached pipeline status, which may represent preparation rather than installation.
      */
     public function __construct(int $status)
     {
@@ -23,9 +24,9 @@ class DeploymentResult implements PipelineResultInterface
     }
 
     /**
-     * Returns the reached deployment state for the owning action.
+     * Returns the status supplied when the result was created.
      *
-     * @return int
+     * @return int Status reached by the deployment pipeline.
      */
     public function getStatus(): int
     {

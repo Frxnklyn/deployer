@@ -4,7 +4,10 @@ namespace axenox\Deployer\Interfaces\Pipelines;
 use exface\Core\Interfaces\iCanBeConvertedToUxon;
 
 /**
- * Executable UXON-configurable workflow; actions own run records and persistence.
+ * Executable workflow configured by prototype UXON and invoked with run inputs.
+ *
+ * The owning action supplies run-specific task data and remains responsible for
+ * run records and persistence.
  *
  * @author Brooklyn Fränzschky
  */

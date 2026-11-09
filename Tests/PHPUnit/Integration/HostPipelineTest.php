@@ -90,6 +90,42 @@ class HostPipelineTest extends TestCase
     }
 
     /**
+     * Removes the approved legacy path attribute while retaining its opaque value for rollback.
+     *
+     * @return void
+     */
+    public function testRelativeReleasePathBreakingMigrationMovesColumnToTrashAndRollsBack(): void
+    {
+        $connection = DataSheetFactory::createFromObjectIdOrAlias($this->workbench, 'axenox.Deployer.host')
+            ->getMetaObject()->getDataConnection();
+        $table = 'pipeline_path_test_' . bin2hex(random_bytes(6));
+        $migration = file_get_contents(dirname(__DIR__, 3)
+            . DIRECTORY_SEPARATOR . 'Install' . DIRECTORY_SEPARATOR . 'Sql' . DIRECTORY_SEPARATOR . 'MySQL'
+            . DIRECTORY_SEPARATOR . 'Migrations' . DIRECTORY_SEPARATOR . '1.4'
+            . DIRECTORY_SEPARATOR . '20261109_0912_01_REMOVE_relative_release_paths.sql');
+        $migration = str_replace('axxdep_host', $table, $migration);
+        [$up, $down] = explode('-- DOWN', explode('-- UP', $migration, 2)[1], 2);
+        try {
+            $connection->runSql("CREATE TABLE {$table} (oid INT PRIMARY KEY, path_rel_to_releases VARCHAR(100) NOT NULL DEFAULT '')");
+            $connection->runSql("INSERT INTO {$table} VALUES (1, 'legacy-subfolder')");
+            $connection->runSql($up, true);
+            $connection->runSql($up, true);
+            $columns = $connection->runSql("SHOW COLUMNS FROM {$table}")->getResultArray();
+            $names = array_column($columns, 'Field');
+            self::assertNotContains('path_rel_to_releases', $names);
+            self::assertContains('trash_path_rel_to_releases', $names);
+            self::assertSame('legacy-subfolder',
+                $connection->runSql("SELECT trash_path_rel_to_releases FROM {$table} WHERE oid=1")->getResultArray()[0]['trash_path_rel_to_releases']);
+            $connection->runSql($down, true);
+            $connection->runSql($down, true);
+            self::assertSame('legacy-subfolder',
+                $connection->runSql("SELECT path_rel_to_releases FROM {$table} WHERE oid=1")->getResultArray()[0]['path_rel_to_releases']);
+        } finally {
+            $connection->runSql("DROP TABLE IF EXISTS {$table}");
+        }
+    }
+
+    /**
      * Imports only new metadata inside a rolled-back transaction and builds the real editor.
      *
      * @return void

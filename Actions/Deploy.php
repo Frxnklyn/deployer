@@ -14,7 +14,6 @@ use exface\Core\Interfaces\Actions\iCreateData;
 use exface\Core\Exceptions\Actions\ActionInputMissingError;
 use exface\Core\Factories\DataSheetFactory;
 use exface\Core\DataTypes\ComparatorDataType;
-use exface\Core\Factories\DataConnectionFactory;
 use axenox\Deployer\Actions\Traits\BuildProjectTrait;
 use exface\Core\DataTypes\DateTimeDataType;
 use exface\Core\Facades\HttpFileServerFacade;
@@ -28,35 +27,21 @@ use axenox\Deployer\Common\Pipelines\ReleaseDeploymentTask;
 use axenox\Deployer\Common\Pipelines\PreparedDeploymentResult;
 use axenox\Deployer\Common\Pipelines\NativeDeploymentPackage;
 use axenox\Deployer\Common\Pipelines\DeploymentLicenseConfig;
-use axenox\Deployer\Factories\PipelineFactory;
-use axenox\Deployer\Interfaces\Pipelines\DeploymentPipelineInterface;
 use axenox\Deployer\Pipelines\Deploy\ManualTransfer;
+use axenox\Deployer\Factories\HostDeploymentPipelineFactory;
+use axenox\Deployer\Common\Deployment\DeploymentRecordWriter;
 
 /**
- * Deploys a build to a specific host.
- * 
- * This action requires an instance of a build and an instance of a host as parameters.
- * The action may either be called via the PowerUI frontend or via CLI-command.
- * The parameters for the CLI-call are the names of the host and build, which have to be existing instances of
- * `axenox.Deployer.host` and `axenox.Deployer.build` objects.
- * This action will then extract the data, required for the deployment, from the given objects, create a working directory
- * and call the actual command for the deployment process. 
- * Upon finishing the deployment process, the action will delete every temporary file / directories created.
- * 
- * ## Commandline Usage:
- * 
- * ```
- * action axenox.Deployer:Deploy [BuildName] [HostName]
- * ```
- * 
- * For example:
- * ```
- * action axenox.Deployer:Deploy 1.1.2+20191108145134 sdrexf2
- * ```
- * 
- * 
- * @author Andrej Kabachnik
+ * Runs the deployment pipeline selected for each host in the action input.
  *
+ * The action resolves and validates build/host records, creates deployment
+ * records, supplies run-specific task data and authoritative host settings,
+ * then persists yielded progress and pipeline results. Host `deploy_config`
+ * is imported as pipeline-specific UXON; host paths, PHP executable,
+ * operating system and connection are supplied separately from the host
+ * record. A selected prototype is never replaced by legacy recipe execution.
+ *
+ * @author Andrej Kabachnik
  */
 class Deploy extends AbstractActionDeferred implements iCanBeCalledFromCLI, iCreateData
 {
@@ -69,9 +54,9 @@ class Deploy extends AbstractActionDeferred implements iCanBeCalledFromCLI, iCre
     private $hostData = null;
     
     /**
+     * Configures this action for one or more deployment rows.
      *
-     * {@inheritdoc}
-     * @see \exface\Core\CommonLogic\AbstractAction::init()
+     * @return void
      */
     protected function init()
     {
@@ -82,9 +67,15 @@ class Deploy extends AbstractActionDeferred implements iCanBeCalledFromCLI, iCre
     }
     
     /**
+     * Validates host/project selection and prepares one deployment row per host.
      *
-     * {@inheritDoc}
-     * @see \exface\Core\CommonLogic\AbstractActionDeferred::performImmediately()
+     * If no input sheet is provided, build and host task parameters are used to
+     * construct the deployment sheet for deferred execution.
+     *
+     * @param TaskInterface $task Current deployment task.
+     * @param DataTransactionInterface $transaction Transaction supplied by Core.
+     * @param ResultMessageStreamInterface $result Result stream supplied by Core.
+     * @return array{0: TaskInterface, 1: DataSheetInterface} Task and deployment sheet.
      */
     protected function performImmediately(TaskInterface $task, DataTransactionInterface $transaction, ResultMessageStreamInterface $result) : array
     {
@@ -106,9 +97,15 @@ class Deploy extends AbstractActionDeferred implements iCanBeCalledFromCLI, iCre
     }
     
     /**
+     * Creates deployment records and runs each selected host pipeline.
      *
-     * {@inheritDoc}
-     * @see \exface\Core\CommonLogic\AbstractActionDeferred::performDeferred()
+     * Progress is yielded as text; failures are recorded on the corresponding
+     * row and do not trigger a legacy recipe fallback.
+     *
+     * @param TaskInterface|null $task Deferred task prepared by Core.
+     * @param DataSheetInterface|null $deployData Deployment rows to create and update.
+     * @return \Generator<int, string, mixed, void> Progress messages for each host deployment.
+     * @throws InvalidArgumentException If deferred task or deployment data is missing.
      */
     protected function performDeferred(TaskInterface $task = null, DataSheetInterface $deployData = null) : \Generator
     {
@@ -137,7 +134,6 @@ class Deploy extends AbstractActionDeferred implements iCanBeCalledFromCLI, iCre
         
         for($hostIndex = 0; $hostIndex < $hostCount; $hostIndex++) {
             try {
-                // Generated by GitHub Copilot - Nov-05-2026
                 if ($prototypes[$hostIndex] === '') {
                     $message = 'No deployment pipeline selected. Run the Deployer pipeline migration and configure the host; legacy recipes are no longer executed.';
                     throw new \RuntimeException($message);
@@ -148,7 +144,6 @@ class Deploy extends AbstractActionDeferred implements iCanBeCalledFromCLI, iCre
                 $message = $prototypes[$hostIndex] === ''
                     ? $message
                     : 'Selected deployment pipeline failed (' . get_class($error) . '); no legacy fallback.';
-                // Generated by GitHub Copilot - Nov-05-2026
                 if ($error instanceof \InvalidArgumentException && in_array($error->getMessage(), [
                     'Host installation root does not match the selected operating system.',
                     'Host installation root must be an absolute non-traversing path.'
@@ -166,47 +161,27 @@ class Deploy extends AbstractActionDeferred implements iCanBeCalledFromCLI, iCre
     }
 
     /**
-     * Runs configured hosts without recipe generation or pipeline model access.
+     * Runs one selected host pipeline and persists its streamed output and result.
      *
-     * @param TaskInterface $task
-     * @param DataSheetInterface $deployData
-     * @param int $hostIndex
-     * @param string $prototype
-     * @return \Generator
+     * The host configuration is passed as pipeline-specific UXON while the
+     * factory service injects authoritative host-owned values separately.
+     *
+     * @param TaskInterface $task Current deployment task.
+     * @param DataSheetInterface $deployData Deployment records being updated.
+     * @param int $hostIndex Zero-based index of the selected host row.
+     * @param string $prototype Selected deployment pipeline prototype.
+     * @return \Generator<int, string, mixed, DeploymentResult> Progress messages and the pipeline result.
+     * @throws \InvalidArgumentException If the selected pipeline rejects the release inputs.
+     * @throws \RuntimeException If yielded output or the returned outcome violates the pipeline contract.
      */
     protected function runSelectedPipeline(TaskInterface $task, DataSheetInterface $deployData, int $hostIndex, string $prototype): \Generator
     {
         $configuration = UxonObject::fromJson($this->getHostData($task, 'deploy_config', $hostIndex) ?: '{}');
-        $hostAliases = $this->getHostAttributeAliases();
-        foreach (array_keys($configuration->toArray()) as $key) {
-            $normalized = strtolower(str_replace('_', '', $key));
-            if (str_starts_with($normalized, 'host') || in_array($normalized, $hostAliases, true)
-                || in_array($normalized, ['connection', 'relativedeploypath'], true)) {
-                throw new \InvalidArgumentException('Host attributes cannot be configured through pipeline UXON.');
-            }
-        }
-        $pipeline = PipelineFactory::createPipelineFromUxon($this->getWorkbench(), $prototype, $configuration);
-        if (! $pipeline instanceof DeploymentPipelineInterface) {
-            throw new \InvalidArgumentException('Selected prototype is not a deployment pipeline.');
-        }
-        // Generated by GitHub Copilot - Nov-05-2026
-        if (is_callable([$pipeline, 'setConnection'])) {
-            $connectionUid = $this->getHostData($task, 'data_connection', $hostIndex);
-            if (! $connectionUid) {
-                throw new \InvalidArgumentException('Selected deployment pipeline requires a host data connection.');
-            }
-            $pipeline->setConnection(DataConnectionFactory::createFromModel($this->getWorkbench(), $connectionUid));
-        }
-        foreach ([
-            'setHostPathToInstallationRoot' => 'path_abs_to_api',
-            'setHostPhpExecutable' => 'php_cli',
-            'setHostOperatingSystem' => 'operating_system'
-        ] as $setter => $attribute) {
-            if (is_callable([$pipeline, $setter])) {
-                $value = $this->getHostData($task, $attribute, $hostIndex);
-                $pipeline->$setter($attribute === 'php_cli' ? ($value ?: 'php') : ($value ?? ''));
-            }
-        }
+        $pipeline = HostDeploymentPipelineFactory::create(
+            $this->getWorkbench(), $prototype, $configuration,
+            fn (string $attribute) => $this->getHostData($task, $attribute, $hostIndex),
+            $this->getHostAttributeAliases()
+        );
         $nativeTask = new DeploymentTask(
             (string) $deployData->getCellValue('uid', $hostIndex),
             (string) $this->getHostData($task, 'uid', $hostIndex)
@@ -226,7 +201,6 @@ class Deploy extends AbstractActionDeferred implements iCanBeCalledFromCLI, iCre
                 (string) $this->getBuildData($task, 'uid'),
                 (string) $this->getBuildData($task, 'name'),
                 NativeDeploymentPackage::projectPath($this->getBasePath(), $this->getProjectFolderRelativePath($task)),
-                // Generated by GitHub Copilot - Nov-05-2026
                 self::getHostAlias((string) $this->getHostData($task, 'name', $hostIndex))
             );
         }
@@ -252,12 +226,11 @@ class Deploy extends AbstractActionDeferred implements iCanBeCalledFromCLI, iCre
                 $log .= $outcome->instructions . "\nPrivate package: " . $outcome->artifactPath
                     . "\nSHA-256: " . $outcome->sha256 . "\n";
             }
-            $deployData->setCellValue('status', $hostIndex, $outcome->getStatus());
+            $values = ['status' => $outcome->getStatus(), 'log' => $log];
             if ($outcome->getStatus() >= 90) {
-                $deployData->setCellValue('completed_on', $hostIndex, DateTimeDataType::now());
+                $values['completed_on'] = DateTimeDataType::now();
             }
-            $deployData->setCellValue('log', $hostIndex, $log);
-            $deployData->dataUpdate(false);
+            DeploymentRecordWriter::update($deployData, $values, $hostIndex);
         } catch (\Throwable $error) {
             if ($outcome instanceof PreparedDeploymentResult) {
                 $outcome->discard();
@@ -274,7 +247,7 @@ class Deploy extends AbstractActionDeferred implements iCanBeCalledFromCLI, iCre
     /**
      * Normalizes all actual host attribute aliases, not just this prototype's inputs.
      *
-     * @return string[]
+     * @return string[] Normalized aliases with underscores removed.
      */
     protected function getHostAttributeAliases(): array
     {
@@ -286,15 +259,14 @@ class Deploy extends AbstractActionDeferred implements iCanBeCalledFromCLI, iCre
     }
 
     /**
-     * Replaces C:\... with http://... links for files within the project folder
+     * Replaces quoted project-local file paths with file-server download URLs.
      * 
-     * @param string $msg
-     * @return string
+     * @param string $msg Message that may contain quoted local file paths.
+     * @return string Message with matching file paths replaced by URLs.
      */
     protected function replaceFilePathsWithHyperlinks(string $msg) : string
     {
         $urlMatches = [];
-        // Generated by GitHub Copilot - Nov-04-2026
         if (preg_match_all('/"(' . preg_quote($this->getBasePath(), '/') . '[^"]*)"/', $msg, $urlMatches) > 0) {
             foreach (array_unique($urlMatches[1]) as $urlPath) {
                 $url = HttpFileServerFacade::buildUrlToDownloadFile($this->getWorkbench(), $urlPath, false);
@@ -303,7 +275,12 @@ class Deploy extends AbstractActionDeferred implements iCanBeCalledFromCLI, iCre
         }
         return $msg;
     }
-    
+    /**
+     * Normalizes line breaks in a CLI progress message for the action stream.
+     *
+     * @param string $msg Raw pipeline message.
+     * @return string Message with carriage returns and line feeds normalized.
+     */
     protected function escapeCliMessage(string $msg) : string
     {
         // TODO handle strange empty spaces in composer output
@@ -311,13 +288,13 @@ class Deploy extends AbstractActionDeferred implements iCanBeCalledFromCLI, iCre
     }
      
     /**
-     * This function takes an task, and an attribute as parameter, and returns the data of
-     * the tasks project data, stored under the attribute passed as a parameter.
+     * Returns a project attribute selected by the build's project reference.
      *
-     * @param TaskInterface $task
-     * @param string $projectAttributeAlias
-     * @throws ActionInputMissingError
-     * @return string
+     * @param TaskInterface $task Current deployment task.
+     * @param string $projectAttributeAlias Project model attribute alias to read.
+     * @return string Attribute value, or an empty string when the stored value is null.
+     * @throws ActionInputMissingError If the build has no project reference.
+     * @throws ActionInputError If the referenced project cannot be found.
      */
     protected function getProjectData(TaskInterface $task, string $projectAttributeAlias) : string
     {
@@ -345,13 +322,17 @@ class Deploy extends AbstractActionDeferred implements iCanBeCalledFromCLI, iCre
     }
 
     /**
-     * This function takes an task, and an attribute as parameter, and returns the data of
-     * the tasks host data, stored under the attribute passed as a parameter.
+     * Returns a host attribute for the selected host row.
      *
-     * @param TaskInterface $task
-     * @param string $option
-     * @param int $index
-     * @return string|null
+     * Hosts are selected by task parameter or deployment input sheet and cached
+     * for the duration of this action instance.
+     *
+     * @param TaskInterface $task Current deployment task.
+     * @param string $option Host model attribute alias to read.
+     * @param int $index Zero-based host row index.
+     * @return string|null Attribute value, or null if the stored value is null.
+     * @throws ActionInputMissingError If no host reference is supplied.
+     * @throws ActionInputError If no matching host can be found.
      */
     protected function getHostData(TaskInterface $task, string $option, int $index = 0) : ?string
     {
@@ -363,7 +344,6 @@ class Deploy extends AbstractActionDeferred implements iCanBeCalledFromCLI, iCre
                 'name',
                 'operating_system',
                 'path_abs_to_api',
-                'path_rel_to_releases',
                 'php_cli',
                 'project',
                 'stage',
@@ -409,13 +389,12 @@ class Deploy extends AbstractActionDeferred implements iCanBeCalledFromCLI, iCre
      *
      * Numeric array merging could otherwise attach one license's terms to another license.
      *
-     * @param array $deployConfig
-     * @param string|null $projectLicensesJson
-     * @return array
+     * @param array<string, mixed> $deployConfig Deployment configuration to update.
+     * @param string|null $projectLicensesJson Optional project license configuration JSON.
+     * @return array<string, mixed> Configuration with the project license defaults merged into app config.
      */
     protected function mergeProjectLicensesConfig(array $deployConfig, ?string $projectLicensesJson) : array
     {
-        // Generated by GitHub Copilot - Nov-05-2026
         $configuration = DeploymentLicenseConfig::merge(
             $deployConfig['default_app_config'] ?? [],
             $projectLicensesJson
@@ -427,10 +406,10 @@ class Deploy extends AbstractActionDeferred implements iCanBeCalledFromCLI, iCre
     }
 
     /**
-     * Gets the host count.
-     * 
-     * @param TaskInterface $task
-     * @return int
+     * Returns the number of hosts selected for this action.
+     *
+     * @param TaskInterface $task Current deployment task.
+     * @return int Number of selected host rows.
      */
     protected function getHostCount(TaskInterface $task) : int
     {
@@ -443,12 +422,13 @@ class Deploy extends AbstractActionDeferred implements iCanBeCalledFromCLI, iCre
     }
     
     /**
-     * This function takes an task, and an attribute as parameter, and returns the data of
-     * the tasks build data, stored under the attribute passed as a parameter.
+     * Returns a build attribute selected by task parameter or deployment input row.
      *
-     * @param TaskInterface $task
-     * @param string $projectAttributeAlias
-     * @return string|null
+     * @param TaskInterface $task Current deployment task.
+     * @param string $projectAttributeAlias Build model attribute alias to read.
+     * @return string|null Attribute value from the selected build.
+     * @throws ActionInputMissingError If no build reference is supplied.
+     * @throws ActionInputError If the referenced build cannot be found.
      */
     protected function getBuildData(TaskInterface $task, string $projectAttributeAlias) : ?string
     {
@@ -496,9 +476,9 @@ class Deploy extends AbstractActionDeferred implements iCanBeCalledFromCLI, iCre
     }
  
     /**
-     * 
-     * {@inheritDoc}
-     * @see \exface\Core\Interfaces\Actions\iCanBeCalledFromCLI::getCliArguments()
+     * Describes required build and host CLI arguments.
+     *
+     * @return ServiceParameter[] Required positional arguments for the deployment action.
      */
     public function getCliArguments() : array
     {
@@ -515,9 +495,9 @@ class Deploy extends AbstractActionDeferred implements iCanBeCalledFromCLI, iCre
     }
 
     /**
-     * 
-     * {@inheritDoc}
-     * @see \exface\Core\Interfaces\Actions\iCanBeCalledFromCLI::getCliOptions()
+     * Returns the optional named CLI arguments supported by this action.
+     *
+     * @return ServiceParameter[] Empty because Deploy has no optional CLI options.
      */
     public function getCliOptions() : array
     {
@@ -539,17 +519,11 @@ class Deploy extends AbstractActionDeferred implements iCanBeCalledFromCLI, iCre
     
     
     /**
-     * Validates that all selected deployment hosts belong to the same project as the selected build.
-     * 
-     * Note: In case of a faulty filtering of the hosts, the deployment will start for ALL hosts,
-     * including the hosts from different projects. So this validation is crucial to prevent unwanted deployments to wrong hosts.
-     * If the host skip logic is implemented, with faulty filtering,
-     * the deployment can still happen to unwanted hosts that belongs to the same project, for example the "PROD" host.
-     * So make sure that these cases are caught, bevor reworking this solution.
+     * Ensures every selected host belongs to the project containing the build.
      *
-     * @param TaskInterface $task
-     * @throws ActionInputError If one of the selected hosts belongs to another project than the build.
+     * @param TaskInterface $task Current deployment task.
      * @return void
+     * @throws ActionInputError If any selected host belongs to another project than the build.
      */
     protected function validateHostsBelongToBuildProject(TaskInterface $task) : void
     {

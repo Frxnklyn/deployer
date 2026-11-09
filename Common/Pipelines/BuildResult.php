@@ -4,7 +4,8 @@ namespace axenox\Deployer\Common\Pipelines;
 use axenox\Deployer\Interfaces\Pipelines\PipelineResultInterface;
 
 /**
- * Build outcome and optional evidence for persistence by the owning action.
+ * Carries a pipeline's reached build status and optional build evidence back to the
+ * action that owns persistence. It does not persist records or decide status transitions.
  *
  * @author Brooklyn Fränzschky
  */
@@ -13,13 +14,13 @@ class BuildResult implements PipelineResultInterface
     private int $status;
 
     /**
-     * Captures the reached state without inventing a new state machine.
+     * Stores the status reached by the pipeline and any evidence it produced.
      *
-     * @param int $status
-     * @param string|null $archivePath
-     * @param string|null $composerLock
-     * @param string|null $packageBom
-     * @param string|null $composerJson
+     * @param int $status Pipeline status for the owning action to persist.
+     * @param string|null $archivePath Produced archive path, when available.
+     * @param string|null $composerLock Captured Composer lock JSON, when available.
+     * @param string|null $packageBom Compact package inventory JSON, when available.
+     * @param string|null $composerJson Effective Composer input JSON, when available.
      */
     public function __construct(
         int $status,
@@ -33,9 +34,9 @@ class BuildResult implements PipelineResultInterface
     }
 
     /**
-     * Returns the reached build state for the owning action.
+     * Returns the status supplied when the result was created.
      *
-     * @return int
+     * @return int Status reached by the build pipeline.
      */
     public function getStatus(): int
     {
@@ -43,7 +44,8 @@ class BuildResult implements PipelineResultInterface
     }
 
     /**
-     * @return string|null
+     * Returns the path of the archive produced by the pipeline, when available.
+     * @return string|null Path to the generated archive, or null if none was produced.
      */
     public function getArchivePath(): ?string
     {
@@ -51,7 +53,8 @@ class BuildResult implements PipelineResultInterface
     }
 
     /**
-     * @return string|null
+     * Returns the captured Composer lock document, when available.
+     * @return string|null Captured Composer lock JSON, or null if unavailable.
      */
     public function getComposerLock(): ?string
     {
@@ -59,6 +62,7 @@ class BuildResult implements PipelineResultInterface
     }
 
     /**
+     * Returns the compact package inventory captured for persistence.
      * @return string|null Minimal database BOM.
      */
     public function getPackageBom(): ?string
@@ -67,6 +71,7 @@ class BuildResult implements PipelineResultInterface
     }
 
     /**
+     * Returns the effective Composer input used before installer-script preparation.
      * @return string|null Effective input before installer-script preparation.
      */
     public function getComposerJson(): ?string

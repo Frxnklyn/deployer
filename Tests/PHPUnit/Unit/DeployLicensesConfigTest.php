@@ -2,8 +2,8 @@
 namespace axenox\Deployer\Tests\PHPUnit\Unit;
 
 use axenox\Deployer\Actions\Deploy;
+use axenox\PackageManager\Common\LicenseBOM\BOMPackage;
 use axenox\PackageManager\Common\LicenseBOM\LicenseBOM;
-use exface\Core\CommonLogic\UxonObject;
 use exface\Core\CommonLogic\Workbench;
 use exface\Core\Exceptions\UxonSyntaxError;
 use exface\Core\Exceptions\UxonMapError;
@@ -57,20 +57,20 @@ class DeployLicensesConfigTest extends TestCase
         ]];
         $merged = $this->merge($host, $projectJson);
         $licenses = $merged['default_app_config']['Licenses.config.json'];
-        self::assertSame('Host terms', $licenses['licenses'][0]['text']);
-        self::assertSame('https://example.com/license', $licenses['licenses'][0]['link']);
+        self::assertSame('Host terms', $licenses['licenses']['Commercial']['license_text']);
+        self::assertSame('https://example.com/license', $licenses['licenses']['Commercial']['license_link']);
         self::assertCount(1, $licenses['packages']);
         self::assertSame('example/library', $licenses['packages'][0]['name']);
         self::assertSame('Commercial', $licenses['packages'][0]['license_used']);
-        self::assertSame('Host terms', $licenses['packages'][0]['licenses'][0]['text']);
-        self::assertArrayNotHasKey('source', $licenses['licenses'][0]);
-        self::assertArrayNotHasKey('text_available', $licenses['licenses'][0]);
-        self::assertArrayNotHasKey('source', $licenses['packages'][0]['licenses'][0]);
-        self::assertArrayNotHasKey('text_available', $licenses['packages'][0]['licenses'][0]);
+        self::assertArrayNotHasKey('source', $licenses['licenses']['Commercial']);
+        self::assertArrayNotHasKey('text_available', $licenses['licenses']['Commercial']);
         self::assertArrayNotHasKey('urn', $licenses['packages'][0]);
         $inventory = new LicenseBOM();
-        $inventory->importUxonObject(new UxonObject($licenses));
-        self::assertTrue($inventory->getPackages()['composer:example/library:']->hasLicenseText());
+        $inventory->setLicenses($licenses['licenses']);
+        $inventory->addPackage(new BOMPackage($licenses['packages'][0]));
+        $packages = array_values($inventory->getPackages());
+        self::assertCount(1, $packages);
+        self::assertTrue($packages[0]->hasLicenseText());
         self::assertSame($host['default_app_config']['System.config.json'], $merged['default_app_config']['System.config.json']);
         self::assertSame($merged, $this->merge($host, $projectJson));
         self::assertArrayNotHasKey('packages', $host['default_app_config']['Licenses.config.json']);
@@ -85,9 +85,10 @@ class DeployLicensesConfigTest extends TestCase
     {
         $project = ['licenses' => ['Commercial' => ['license_text' => 'Project terms']]];
         self::assertSame(
-            ['default_app_config' => ['Licenses.config.json' => ['packages' => [], 'licenses' => [[
-                'name' => 'Commercial', 'text' => 'Project terms'
-            ]]]]],
+            ['default_app_config' => ['Licenses.config.json' => [
+                'licenses' => ['Commercial' => ['license_text' => 'Project terms']],
+                'packages' => []
+            ]]],
             $this->merge([], json_encode($project))
         );
     }
@@ -114,11 +115,11 @@ class DeployLicensesConfigTest extends TestCase
             'packages' => [['name' => 'example/second', 'ecosystem' => 'private']]
         ]]];
         $config = $this->merge($host, json_encode($project))['default_app_config']['Licenses.config.json'];
-        $licenses = array_column($config['licenses'], null, 'name');
+        $licenses = $config['licenses'];
         $packages = array_column($config['packages'], null, 'name');
-        self::assertSame('MIT terms', $licenses['MIT']['text']);
-        self::assertSame('Host terms', $licenses['Commercial']['text']);
-        self::assertSame('https://example.org/license', $licenses['Commercial']['link']);
+        self::assertSame('MIT terms', $licenses['MIT']['license_text']);
+        self::assertSame('Host terms', $licenses['Commercial']['license_text']);
+        self::assertSame('https://example.org/license', $licenses['Commercial']['license_link']);
         self::assertSame('MIT', $packages['example/first']['license_used']);
         self::assertSame('Commercial', $packages['example/second']['license_used']);
         self::assertSame('private', $packages['example/second']['ecosystem']);

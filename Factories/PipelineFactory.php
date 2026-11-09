@@ -13,23 +13,32 @@ use exface\Core\Factories\AbstractSelectableComponentFactory;
 use exface\Core\Interfaces\WorkbenchInterface;
 
 /**
- * Resolves app-owned pipeline prototypes through Core and imports their configuration.
+ * Resolves app-owned build or deployment pipeline prototypes through Core.
+ *
+ * The selected prototype receives only its own UXON configuration here.
+ * Actions remain responsible for supplying host attributes, connections and
+ * run-specific task inputs.
  *
  * @author Brooklyn Fränzschky
  */
 abstract class PipelineFactory extends AbstractSelectableComponentFactory
 {
     /**
-     * Validates a usable family prototype before construction and UXON import.
+     * Resolves, validates and configures one concrete pipeline prototype.
      *
      * Prototypes receive the workbench constructor argument, following Core factories.
      * The owning action must supply host attributes, connections and task inputs
      * separately; this factory does not classify or filter prototype UXON keys.
      *
-     * @param WorkbenchInterface $workbench
-     * @param PipelinePrototypeSelectorInterface|string $selectorOrString
-     * @param UxonObject $uxon
-     * @return PipelineInterface
+     * File selectors use Core app-qualified paths; class selectors must identify
+     * an app namespace under its Pipelines/Build or Pipelines/Deploy namespace.
+     * The selected class must implement the family interface matching that path.
+     *
+     * @param WorkbenchInterface $workbench Workbench used to resolve the app-owned prototype.
+     * @param PipelinePrototypeSelectorInterface|string $selectorOrString Prototype selector or its string form.
+     * @param UxonObject $uxon Pipeline-specific configuration to import by copy.
+     * @return PipelineInterface Instantiated pipeline with the supplied UXON imported.
+     * @throws InvalidArgumentException If the selector, class, family, instance or workbench is invalid.
      */
     public static function createPipelineFromUxon(
         WorkbenchInterface $workbench,
@@ -37,7 +46,6 @@ abstract class PipelineFactory extends AbstractSelectableComponentFactory
         UxonObject $uxon
     ): PipelineInterface {
 
-        //Syntax gehört in den Selector, nicht hier.
         if (is_string($selectorOrString)) {
             $selector = new PipelinePrototypeSelector($workbench, $selectorOrString);
         } elseif ($selectorOrString instanceof PipelinePrototypeSelectorInterface) {

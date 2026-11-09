@@ -4,6 +4,56 @@ This is the working implementation plan for [Deployer v3 requirements](./Require
 
 ## Baseline and progress rules
 
+### Host-selected HTTP delegation (2026-11-07)
+
+DeployerFacade now authenticates/routes and resolves the current host's prototype
+and UXON through the shared `HostDeploymentPipelineFactory`.
+`DeploymentHttpHandlerInterface` is an optional ordinary-publication capability,
+separate from the pending on-demand interface. Pull/polling own native HTTP
+handling; manual/Azure reject OTA use; unsupported selected capabilities return
+409 without legacy fallback. Historical recipe transport remains compatible.
+
+Capabilities receive data snapshots and action-provided reporting callbacks,
+never model/data-sheet access. Deploy's final-result persistence and late HTTP
+reports share `DeploymentRecordWriter`. Native transport retains HTTPS/client,
+attempt/artifact/hash/path, status and optimistic callback safeguards; initial
+download publication now reports concurrent state changes instead of serving
+bytes after a conflicting update.
+
+Focused fixture evidence: PHP 8.3.36 / PHPUnit 10.5.63, the ordinary transport
+regression group passed with **124 tests, 1703 assertions, 14 declared skips**
+(110 non-skipped tests). Command from the Deployer package:
+
+```powershell
+php '..\..\phpunit\phpunit\phpunit' -c phpunit.xml.dist --filter 'NativeOtaFacadeTest|PipelineFactoryTest|PipelineContractsTest|DeployNativePipelineTest|ManualTransferTest|AzureManualTransferTest|NativeOtaTest|NativeOtaDownloaderTest|NativeRootTest|NativePushFacadeTest|NativePushTransportTest|NativeUpdaterPushTest|LegacyDependencyRemovalTest|NativeBuildExportTest' --no-progress --display-skipped
+```
+
+The 14 skips explicitly require optional PackageManager `isNativeOta`,
+`createNativePushResponse` or `NativePushReceiver::receive` APIs absent on the
+normal checkout. No skipped acceptance is recorded as passed. Changed/new PHP
+lint (13 files) and `git -c core.whitespace=cr-at-eol diff --check` passed; the
+whitespace option recognizes the existing Windows CRLF worktree without changing
+Git configuration.
+
+After the final data-only lifecycle identity guard and routing/no-publication
+regressions, the narrow facade/factory/action/contract group was rerun:
+**53 tests, 396 assertions, no skips or failures**:
+
+```powershell
+php '..\..\phpunit\phpunit\phpunit' -c phpunit.xml.dist --filter 'NativeOtaFacadeTest|PipelineFactoryTest|DeployNativePipelineTest|PipelineContractsTest' --no-progress
+```
+
+PHP lint (all 13 changed/new PHP files) and the Windows-aware diff check passed
+again. The capability cannot report changes to action-owned identity/configuration
+fields; the reporter permits only status, log and completion timestamp values.
+
+This is a partial REQ-003/007/009/014/016 implementation slice, not closure of the lifecycle,
+transaction, authorization, on-demand or platform acceptance decisions. Ordinary GET
+does not create a deployment. An explicit `?redeploy=true` on empty publication
+preserves historical behavior: the action prepares the last successfully deployed
+build, then the selected pipeline serves its newly published package. This compatibility
+path does not settle the separate OnDemandDeploymentInterface/state-machine contract.
+
 ### PackageManager isolation update (2026-11-06)
 
 At the operator's request, the local PackageManager checkout is back on normal
@@ -43,13 +93,12 @@ scanner group passed 65/335, excluding the previously recorded default scanner
 registration mismatch. The focused Deployer export/action group passed 14/131
 after commenting optional build-directory web rules.
 
-**Known failing acceptance:** `DeployLicensesConfigTest` reproduces 5 failures out
-of 6 tests, plus 4 warnings. The wrapper now emits Composer-style definitions
-rather than the older canonical shape; invalid JSON raises `JsonException` rather
-than `UxonSyntaxError`; the test expecting rejection of recorded package evidence
-also no longer raises `UxonMapError`. Review the intended evidence/configuration
-boundary as well as output and exception compatibility before calling this resolved.
-These failures are recorded, not silently excluded or declared harmless.
+**License merge follow-up (2026-11-09):** The old wrapper test expected an obsolete
+array-shaped license representation for deployment configuration. Tests now assert
+the current PackageManager keyed-definition format. Two substantive safeguards were
+also restored in the native merge: project config cannot import result-only license
+evidence, and invalid JSON is reported as `UxonSyntaxError`. Focused verification
+is recorded in TASK-027; full-suite acceptance is still required.
 The complete 221-test suite was started with rollback-only persistence checks
 enabled, reproduced these failures, then was stopped after more than seven minutes
 without a final summary. It is not recorded as passed. The isolated failing class
@@ -106,7 +155,6 @@ included. Unrelated dirty Core files on another branch are intentionally exclude
 
 The following is illustrative pseudocode for the agreed contract, not an existing API or a complete PHP implementation. `PipelineInterface` extends Core's `iCanBeConvertedToUxon` as specified by the roadmap. Result construction/accessors and intermediate lifecycle reporting still need decisions.
 
-// Generated by GitHub Copilot - Nov-03-2026
 ```php
 interface PipelineInterface
 {
@@ -144,7 +192,6 @@ Family interfaces inherit the common `run(PipelineTaskInterface $task): \Generat
 
 The task/result names below follow the roadmap. Their exact constructors/accessors are not final APIs.
 
-// Generated by GitHub Copilot - Nov-03-2026
 ```php
 interface PipelineTaskInterface {}
 
@@ -180,7 +227,6 @@ The two specialized deployment task interfaces express whether a selected build 
 
 The [selector](../../Common/Selectors/PipelinePrototypeSelector.php) and [factory](../../Factories/PipelineFactory.php) now implement the roadmap's Core-style construction entry point. The factory accepts app-qualified `vendor/app/Pipelines/Build|Deploy/Prototype.php` paths or corresponding class names, resolves file classes through Core, checks concrete family membership before construction, delegates to the selected app with the workbench constructor argument, and imports a copy of the UXON. The build discovery metaobject `axenox.Deployer.pipeline_prototype_build` inherits Core's PHP-file metadata and lists app-root `Pipelines/Build/*.php` files. Build variants have nullable `prototype_file` / `config_uxon` fields and an `InputUxon` editor linked to their selected prototype. This is explicitly a configuration preview: the legacy Composer fields and execution remain active, and selection changes do not clear UXON. Deployment discovery/editor, nested discovery, explicit switch/reset UX, host-key exclusion and production cutover remain pending. The following uses the existing factory method; production prototypes and migrated stored configuration are not yet available.
 
-// Generated by GitHub Copilot - Nov-03-2026
 ```php
 $prototype = \axenox\Deployer\Factories\PipelineFactory::createPipelineFromUxon(
     $workbench,
@@ -193,7 +239,6 @@ Only usable prototypes belong in family namespaces; abstract helpers belong in `
 
 The following UXON snippets are illustrative representations of the roadmap's proposed storage boundaries, not complete model schemas or verified selector APIs. The Composer property name `composer_auth` remains subject to DEC-19. Host attributes such as installation path, PHP executable, OS, and connection are intentionally absent from the host UXON.
 
-// Generated by GitHub Copilot - Nov-03-2026
 ```json
 {
   "prototype_file": "\\axenox\\Deployer\\Pipelines\\Build\\ComposerInstall",
@@ -207,7 +252,6 @@ The following UXON snippets are illustrative representations of the roadmap's pr
 }
 ```
 
-// Generated by GitHub Copilot - Nov-03-2026
 ```json
 {
   "deploy_config": {
@@ -414,6 +458,7 @@ Commit labels such as `DEV task 01` identify implementation increments, not comp
 | Task | Requirements | Description | Dependencies | Done | Status | Evidence / Deviation | Commit |
 |---|---|---|---|---|---|---|---|
 | TASK-026 | REQ-005, REQ-009, REQ-014, REQ-019 | **Goal:** Restore normal PackageManager and keep Deployer build/audit/manual PHX preparation working independently. **Complete when:** integration changes are preserved separately, normal checkout is unchanged, verified Windows trust is Deployer-owned with explicit CA precedence, actual web build/audit/publication and persisted artifact hashes pass, and optional-client tests are distinguished from standalone coverage. | TASK-023, TASK-025 | [x] | DONE | Operator requested isolation on 2026-11-06. PackageManager normal 1.x-dev is exactly eec85af with clean worktree; integration branch e8cb63b pushed separately, existing fork main history preserved. Actual web Build 4.2.2+20261106090546 produced status99, 16056520-byte archive and 205 persisted nonempty audit identities. Web Deploy produced status60 and builds/4.2.2+20261106090546_My_Local_Dev_One.phx (16138949 bytes); persisted/export/immutable SHA-256 match 1cc86b0d7c0f23a11817e0b518818b44ce2550b23658295752c1e9468347975a. Temporary workspace removed. Final action/audit/export/optional-client group: 51 tests, 384 assertions, 12 optional skips; final manual/standalone/trust group: 39 tests, 341 assertions, 2 optional skips (overlapping, not additive). No failures in either final run; skipped tests are not passes. PHP lint 14 files and whitespace checks pass. No target installation, external Deployer dependency or global ini changes. | ab901df; documentation committed separately |
+| TASK-027 | REQ-009, REQ-012, REQ-013, REQ-019 | **Goal:** Restore explicit native `?redeploy=true` compatibility, remove the approved relative-release-path attribute using `trash_*`, and repair license configuration validation/acceptance. **Complete when:** native explicit redeploy prepares and serves the last successful build while ordinary GET stays non-creating; migration repeatably renames the old column and rollback restores it; model/action/fresh schema no longer use the setting; license merge rejects result-only evidence and maps invalid JSON to UXON errors, with tests for current PM format. | TASK-010, TASK-012, TASK-014 | [x] | DONE | Implemented 2026-11-09. Native handler invokes the existing action-owned redeploy callback only when `redeploy=true` and no publication is pending; it then rereads the new publication. On-demand per-instance identity/release selection remains pending DEC-20 and TASK-014. Added idempotent host-column rename to `trash_path_rel_to_releases` with rollback; removed active model/UI/fresh-schema/action use. License tests now match PM's keyed definitions; project result-only evidence raises UxonMapError and malformed JSON raises UxonSyntaxError. Focused redeploy/license regression group: 34 tests / 206 assertions passed; host/build pipeline group: 7 tests / 171 assertions passed; migration fixture: 1 test / 4 assertions passed. Combined native transport, facade, migration, action and license regression run: 91 tests / 819 assertions passed, 2 skipped. Full-suite and target-install acceptance remain separate/open. | Local, uncommitted |
 
 ### Phases currently blocked by decisions
 

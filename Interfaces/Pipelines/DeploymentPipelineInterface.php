@@ -2,7 +2,10 @@
 namespace axenox\Deployer\Interfaces\Pipelines;
 
 /**
- * Deployment workflow family, without a mandatory release artifact or self-extractor.
+ * Pipeline family for deployment workflows.
+ *
+ * This base family does not require a release artifact or self-extractor;
+ * specialized pipelines may impose those requirements on their task input.
  *
  * @author Brooklyn Fränzschky
  */

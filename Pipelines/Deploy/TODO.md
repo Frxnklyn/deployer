@@ -1,6 +1,6 @@
 # Deployment pipeline TODO
 
-Status: 2026-11-06. Native build and package publication work locally; this is
+Status: 2026-11-07. Native build and package publication work locally; this is
 not full v3 release acceptance. The central task/decision/evidence record is
 [Plan.md](../../Docs/Roadmap/Plan.md), with coverage in
 [Requirements.md](../../Docs/Roadmap/Requirements.md).
@@ -14,6 +14,18 @@ not full v3 release acceptance. The central task/decision/evidence record is
 - Historical `builds/<build>_<host-alias>.phx` export, retaining immutable internal
   copies for authenticated per-attempt OTA downloads.
 - External `deployer/deployer` requirement and recipe execution removed.
+
+## Ordinary HTTP delegation slice
+
+Facade dispatch now uses the current host's selected optional
+`DeploymentHttpHandlerInterface`, not native/manual selector lists. Shared
+action-side configuration/setters and record persistence are reused by Deploy
+and HTTP reporting; pipeline capabilities receive no model/data-sheet objects.
+Custom capability, ordinary pull/polling, manual/Azure rejection, historical
+compatibility and native transport/conflict regressions use fixture-only tests.
+No automatic fresh native runs or on-demand lifecycle decisions were added.
+Focused evidence is recorded in Plan.md; all broader acceptance items below
+remain open, including normal PackageManager's missing optional client APIs.
 
 ## Still to do
 
@@ -31,8 +43,11 @@ not full v3 release acceptance. The central task/decision/evidence record is
   limits and filesystem-vs-database recovery acceptance; do not imply DB rollback.
 - [ ] Review unsupported clone/custom/SSH configurations, migration conflicts,
   reruns/downgrades and preserved historical records across representative installs.
-- [ ] Complete approved `trash_*` handling of removed relative-release-path fields,
-  with migration/recovery evidence. Do not restore the intentionally removed layout.
+- [x] Approved relative-release-path break: host model/UI and fresh schema no longer
+  expose the setting; Deploy no longer reads it. Migration moves existing
+  `path_rel_to_releases` values to `trash_path_rel_to_releases` without using them.
+  Fixture repeatability/rollback verification is recorded in TASK-027. Do not
+  restore the intentionally removed layout.
 - [ ] Finish editor/prototype-switch acceptance and lifecycle reporting/LogBooks.
 - [ ] Pin/document compatible PackageManager/Core release versions and validate
   clean Composer resolution without the removed external dependency.
@@ -40,11 +55,13 @@ not full v3 release acceptance. The central task/decision/evidence record is
   evidence from minimal native BOMs. A successful audit is not a clean assessment.
 - [ ] Decide durable Composer download-cache policy separately; current builds use
   isolated disposable caches.
-- [ ] Resolve `DeployLicensesConfigTest`: 5 of 6 tests fail (2026-11-05).
-  Review legacy wrapper vs native Composer-style license output and exception types;
-  verify the recorded-evidence rejection contract, which no longer throws as expected.
-  Do not simply weaken the test or treat every failure as a stale assertion.
-  Focused native tests do not replace a green full suite.
+- [ ] Run the full suite after the TASK-027 license merge fix. A combined
+  focused regression run now passes: 91 tests / 819 assertions / 2 skipped;
+  that is not the full suite. The former
+  `DeployLicensesConfigTest` failures were traced to stale array-format expectations,
+  plus missing result-evidence rejection and UXON syntax exception mapping; focused
+  tests now cover the current PackageManager format and both safeguards.
+  Focused tests do not replace a green full suite.
 
 ## Build-directory web protection
 

@@ -155,11 +155,6 @@
                                                 "attribute_alias": "path_abs_to_api"
                                             },
                                             {
-                                                "attribute_alias": "path_rel_to_releases",
-                                                "disabled": true,
-                                                "hint": "Legacy migration evidence only. Native v3 ignores this removed relative-path setting."
-                                            },
-                                            {
                                                 "attribute_alias": "operating_system"
                                             },
                                             {

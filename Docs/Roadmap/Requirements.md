@@ -32,6 +32,28 @@ integration branch: historical paired-client evidence below is not evidence that
 those APIs exist on the current normal checkout. Minimal-BOM license completeness,
 external scanner prerequisites and real target/platform acceptance remain open.
 
+### Ordinary deployment HTTP evidence (2026-11-07)
+
+The authenticated facade resolves the current host's selected pipeline and UXON,
+using the same public-setter/configuration boundary as Deploy. Optional
+`DeploymentHttpHandlerInterface` delegates existing publication download/callback
+behavior, including custom app prototypes, without requiring artifacts on the
+generic deployment contract. Unsupported selected capabilities never fall back.
+Pull/polling preserve native transport safeguards; manual/Azure reject OTA use,
+and historical recipe publications retain their compatibility transport.
+
+HTTP capabilities report lifecycle values through data-only context callbacks.
+The action/service-owned `DeploymentRecordWriter` also persists Deploy's final
+results, so pipelines do not directly maintain records. HTTP lifecycle reports
+cannot replace deployment identity/configuration fields. Native callback writes
+compare status/log snapshots; initial native download updates detect conflicts.
+This provides partial evidence for REQ-003/007/009/014/016, not verification of
+their complete acceptance criteria. On-demand lifecycle/release selection,
+general intermediate reporting/transactions, authorization review and real
+target/client/platform acceptance remain unresolved. Normal PackageManager
+`1.x-dev` lacks the optional native client APIs; skipped client tests are not
+counted as passes.
+
 ## Goals and scope
 
 Deployer v3 replaces procedural `deployer/deployer` recipes with developer-maintained, UXON-configurable build and deployment pipeline prototypes. Designers choose supported templates; they do not construct arbitrary stages, dependencies, or conditions. The initial families are build and deployment pipelines. The migration covers existing projects, build variants, hosts, and historical build/deployment records, subject to the explicitly approved removal of `path_rel_to_releases` / `relative_deploy_path`.
@@ -281,7 +303,7 @@ the external dependency, enable unauthenticated downloads or prove target instal
 | REQ-010 | Shared self-extractor behavior and configuration | MUST | Installer/manual group 43/399 verifies shared snapshots/journaled cleanup, first install/update, config/copied/local-app preservation, installer failure/recovery and bounded retention (default4, >=2/-1; active/previous protected). Local vendor-name lists supported. Local packages preserve build-present non-executable assets only; differing PHP, Composer/autoload metadata or absent packages require rebuild explicitly. Full legacy package/map parity, real DB/model install and removed-app uninstall remain unverified; no DB rollback claimed. | PARTIAL |
 | REQ-011 | Cross-platform execution and standalone bootstrap | MUST | Copied artifacts execute installer.php under php -n on Windows/PHP 8.3.36 without old/repository autoload or external deployer. Independent raw archive extraction, private DACLs, new-runtime Core runner/fallback, junction activation and main/worker locking exercised with fake new-runtime installers. Unix/matrix and real database/model installer behavior are not verified. | PARTIAL |
 | REQ-012 | Complete migration and unsupported-config reporting | MUST | Additive schema and conversion fixtures cover retained mappings, unsupported/invalid/conflicting settings, config rename, retention, repeatability, rollback and edit preservation. Local normal InstallApp on 2026-11-05 converted one READY variant and one READY host after private full database/config backup; migration ledger and ALREADY_SELECTED reports checked. Hash comparisons preserve project/non-converted settings and all 11 build / 5 deployment records; Composer manifest/auth preserve JSON types/list order. Post-install editor/migration suite 6/167 passes. Target layout, complete cutover/model cleanup and broader upgrade acceptance remain pending. | PARTIAL |
-| REQ-013 | Approved relative-path breaking change | MUST | Native preparation takes only the absolute installation root and neither reads nor applies old relative release paths; UXON attempts to supply them fail. Old columns/attributes remain for unconfigured legacy execution; breaking-change trash_* removal is not implemented. | PARTIAL |
+| REQ-013 | Approved relative-path breaking change | MUST | Native preparation does not consume the old setting. Host model/editor, fresh InitDB schema and Deploy action no longer expose/read it; upgrade migration renames the old column to trash_path_rel_to_releases without use/value migration, and DOWN restores the legacy name. Focused fixture migration and full upgrade acceptance are required before VERIFIED. | PARTIAL |
 | REQ-014 | Security and data integrity | MUST | Build/manual tests cover argv execution, secret diagnostics/config redaction, credential-file exclusion, raw tar/PAX traversal/link/device/alias/checksum/truncation rejection and filesystem junction containment. Secret-bearing packages use private Windows DACLs, deny files and no public URLs; identities and payload/outer SHA-256 are explicit. TASK-021 / NativeRootTest verifies authoritative root/marker types, bound mismatch, existing absolute local validation before target writes, missing/relative/invalid roots, literal PM argv and legacy rejection; NativeOtaTest verifies deferred push cannot emit success or install. Focused group 111/881 and expanded root test 3/24 pass. Operator-controlled serving/transfer ACLs, bootstrap authorization and full integrity policy remain pending. | PARTIAL |
 | REQ-015 | On-demand deployment lifecycle | DECISION-GATED | Existing facade has legacy pending/redeploy flow; v3 state/identity/release rules pending. | BLOCKED |
 | REQ-016 | Structured status and remote evidence | MUST | Deploy persists structured results: preparation60, failure90, no console-text inference. Native pull callbacks require attempt-bound explicit states, reject backwards/terminal writes and optimistic stale updates; download-only67 is nonterminal. Native client validates SHA-256. Push requires subprocess exit0 plus a private sidecar matching executable hash/attempt/protocol/status99, emitted only after install/cleanup. Failed/corrupted/recovery runs cannot emit success. Full distributed retry/idempotency, real remote integration, lifecycle reporter and LogBooks remain pending. | PARTIAL |
